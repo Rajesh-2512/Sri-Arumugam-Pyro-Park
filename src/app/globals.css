@@ -21,6 +21,23 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  cursor: default;
+}
+
+/* Default cursor for text elements to prevent unwanted I-beam text editing cursor on static text */
+p, span, div, h1, h2, h3, h4, h5, h6, li, td, th {
+  cursor: default;
+}
+
+/* Ensure real input fields maintain text cursor */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+textarea {
+  cursor: text !important;
 }
 
 /* Custom sleek scrollbar for internal table scrolling */
@@ -40,13 +57,15 @@ body {
   background: #94a3b8;
 }
 
-/* Global hover pointer and custom UI for select controls */
+/* Global hover pointer and custom UI for select controls & links */
 button,
 a,
 select,
 input[type="checkbox"],
 input[type="radio"],
-.cursor-pointer {
+.cursor-pointer,
+a *,
+button * {
   cursor: pointer !important;
 }
 
@@ -81,9 +100,80 @@ select option {
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 28s linear infinite;
+  animation: marquee 22s linear infinite;
 }
 
 .animate-marquee:hover {
   animation-play-state: paused;
+}
+
+/* Spinning Ground Chakkar Animation */
+@keyframes spinChakkar {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.animate-chakkar-spin {
+  animation: spinChakkar 1.2s linear infinite;
+}
+
+@keyframes spinChakkarReverse {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+.animate-chakkar-spin-rev {
+  animation: spinChakkarReverse 1.5s linear infinite;
+}
+
+/* Pulse Digit Transition */
+@keyframes digitPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.12); color: #d97706; }
+  100% { transform: scale(1); }
+}
+.animate-digit-pulse {
+  animation: digitPulse 0.4s ease-in-out;
+}
+
+/* Sparkle float animation */
+@keyframes sparkleFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.3;
+  }
+  33% {
+    transform: translateY(-12px) rotate(120deg);
+    opacity: 0.8;
+  }
+  66% {
+    transform: translateY(-6px) rotate(240deg);
+    opacity: 0.5;
+  }
+}
+.sparkle-1 { animation: sparkleFloat 3s ease-in-out infinite; }
+
+/* Gradient text shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.text-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Diya flame flicker */
+@keyframes flicker {
+  0%, 100% { transform: scaleY(1) scaleX(1); opacity: 1; }
+  25% { transform: scaleY(1.15) scaleX(0.92); opacity: 0.95; }
+  50% { transform: scaleY(0.92) scaleX(1.08); opacity: 1; }
+  75% { transform: scaleY(1.08) scaleX(0.96); opacity: 0.95; }
+}
+
+.flame-flicker {
+  animation: flicker 0.75s ease-in-out infinite;
 }

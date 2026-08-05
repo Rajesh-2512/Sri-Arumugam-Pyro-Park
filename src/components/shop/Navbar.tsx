@@ -1,75 +1,72 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useCartStore } from '@/store/cart.store';
-import { ShoppingBag, Sparkles, PhoneCall, Flame } from 'lucide-react';
+import { ShoppingBag, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 const navLinks = [
   { href: '/', label: 'Home' },
-  { href: '#product-list', label: 'Quick Order' },
-  { href: '#categories', label: 'Categories' },
-  { href: '#about-us', label: 'About Us' },
-  { href: '#contact-us', label: 'Contact Us' },
+  { href: '/#product-list', label: 'Products' },
+  { href: '/safety-tips', label: 'Safety Tips' },
+  { href: '/payment-info', label: 'Payment Information' },
+  { href: '/contact', label: 'Contact Us' },
 ];
 
-export default function Navbar({ shopName = 'Crackers Shop', contactNumber = '9876543210' }: { shopName?: string; contactNumber?: string }) {
+export default function Navbar({ shopName = 'Sri Arumugam Pyro Park', contactNumber = '8682913516' }: { shopName?: string; contactNumber?: string }) {
   const totalItems = useCartStore((s) => s.totalItems);
   const [mounted, setMounted] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 text-slate-800 shadow-xs">
+    <header className="sticky top-0 z-50 bg-white backdrop-blur-md border-b border-slate-200/80 text-slate-800 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+        <div className="flex items-center justify-between h-[68px]">
           
-          {/* Logo & Brand */}
-          <Link href="/" className="flex items-center gap-3 group shrink-0">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-red-600 flex items-center justify-center shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-[#1b2342] block leading-none">
-                {shopName}
-              </span>
-              <span className="block text-[10px] font-bold tracking-widest text-amber-600 uppercase mt-1">
-                Authentic Sivakasi Direct
-              </span>
-            </div>
+          {/* Logo */}
+          <Link href="/" className="flex items-center group shrink-0">
+            <Image
+              src="/logo.png"
+              alt={shopName}
+              width={150}
+              height={150}
+              className="object-contain group-hover:scale-105 transition-transform duration-300"
+            />
           </Link>
 
-          {/* Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-7 text-xs font-bold text-slate-700">
-            {navLinks.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className="hover:text-amber-600 transition-colors py-1 border-b-2 border-transparent hover:border-amber-500"
-              >
-                {link.label}
-              </Link>
-            ))}
+          {/* Navigation Links — Desktop */}
+          <nav className="hidden lg:flex items-center gap-6 text-[13px] font-semibold text-slate-600">
+            {navLinks.map((link) => {
+              const isActive = link.href === '/' ? pathname === '/' : pathname === link.href;
+              return (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className={`transition-colors py-1 ${
+                    isActive
+                      ? 'text-orange-500 font-bold'
+                      : 'hover:text-orange-500'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
 
-          {/* Right Actions: Phone Contact Button & Shopping Cart */}
-          <div className="flex items-center gap-3.5">
-            
-            {/* Phone Call Support Button */}
-            <a
-              href={`tel:+${contactNumber}`}
-              className="hidden sm:inline-flex items-center gap-2 text-xs font-extrabold text-slate-700 bg-slate-100 hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-105"
-            >
-              <PhoneCall className="w-4 h-4 text-amber-600" />
-              <span>+{contactNumber}</span>
-            </a>
-
+          {/* Right Actions */}
+          <div className="flex items-center gap-3">
             {/* Shopping Cart Icon Button */}
             <Link
               href="/cart"
-              className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white shadow-md shadow-orange-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
+              className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white shadow-md shadow-orange-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
               title="View Cart"
             >
               <ShoppingBag className="w-5 h-5" />
@@ -80,9 +77,44 @@ export default function Navbar({ shopName = 'Crackers Shop', contactNumber = '98
               )}
             </Link>
 
+            {/* Mobile menu toggle */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 hover:bg-orange-50 border border-slate-200 text-slate-700 hover:text-orange-500 transition-all"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
 
         </div>
+      </div>
+
+      {/* Mobile Navigation Dropdown */}
+      <div
+        className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+          mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <nav className="px-4 pb-4 space-y-1">
+          {navLinks.map((link) => {
+            const isActive = link.href === '/' ? pathname === '/' : pathname === link.href;
+            return (
+              <Link
+                key={link.label}
+                href={link.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-4 py-2.5 text-sm font-bold rounded-xl transition-all ${
+                  isActive
+                    ? 'text-orange-500 bg-orange-50'
+                    : 'text-slate-700 hover:text-orange-500 hover:bg-orange-50'
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     </header>
   );

@@ -36,6 +36,7 @@ export default function ProductImageGallery({ images, productName, effectiveDisc
           src={images[selectedIndex]}
           alt={`${productName} - Image ${selectedIndex + 1}`}
           fill
+          sizes="(max-width: 768px) 100vw, 500px"
           className="object-cover transition-transform duration-300"
           priority
         />

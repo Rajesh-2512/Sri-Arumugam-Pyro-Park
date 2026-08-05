@@ -22,12 +22,12 @@ export default function CategoryFilter({ categories, active }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-2.5">
-      <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 shadow-2xs">
+      <div className="flex items-center gap-2 bg-amber-50/80 border border-amber-200/90 rounded-2xl px-3.5 py-2 shadow-2xs hover:border-amber-400 transition-colors">
         <Filter className="w-4 h-4 text-amber-600 shrink-0" />
         <select
           value={active || 'all'}
           onChange={(e) => setCategory(e.target.value === 'all' ? null : e.target.value)}
-          className="bg-transparent text-xs font-black text-slate-800 focus:outline-none cursor-pointer pr-6"
+          className="bg-transparent text-xs font-extrabold text-slate-800 focus:outline-none cursor-pointer pr-6"
         >
           <option value="all">Filter Category: All Products ({categories.length} Categories)</option>
           {categories.map((cat) => (
