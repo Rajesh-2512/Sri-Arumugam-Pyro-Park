@@ -11,6 +11,21 @@ export const formatCurrency = (amount: number) =>
     maximumFractionDigits: 2,
   }).format(amount);
 
+export function formatDate(dateString: string): string {
+  try {
+    const d = new Date(dateString);
+    return new Intl.DateTimeFormat('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+  } catch (e) {
+    return dateString;
+  }
+}
+
 export function getProductImage(imageUrl: any): string | null {
   if (!imageUrl) return null;
   if (Array.isArray(imageUrl)) {

@@ -81,7 +81,7 @@ export interface Database {
           shop_name: string;
           contact_number: string;
           global_discount_percentage: number;
-          festival_banner_url: string | null;
+          price_list_url: string | null;
           is_shop_open: boolean;
           updated_at: string;
         };
@@ -90,7 +90,7 @@ export interface Database {
           shop_name?: string;
           contact_number?: string;
           global_discount_percentage?: number;
-          festival_banner_url?: string | null;
+          price_list_url?: string | null;
           is_shop_open?: boolean;
           updated_at?: string;
         };
@@ -99,8 +99,56 @@ export interface Database {
           shop_name?: string;
           contact_number?: string;
           global_discount_percentage?: number;
-          festival_banner_url?: string | null;
+          price_list_url?: string | null;
           is_shop_open?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      gift_boxes: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          price: number;
+          discount: number;
+          images: Json;
+          contents: Json;
+          stock: number;
+          is_active: boolean;
+          is_featured: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          description?: string | null;
+          price: number;
+          discount?: number;
+          images?: Json;
+          contents?: Json;
+          stock?: number;
+          is_active?: boolean;
+          is_featured?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          description?: string | null;
+          price?: number;
+          discount?: number;
+          images?: Json;
+          contents?: Json;
+          stock?: number;
+          is_active?: boolean;
+          is_featured?: boolean;
+          created_at?: string;
           updated_at?: string;
         };
         Relationships: [];

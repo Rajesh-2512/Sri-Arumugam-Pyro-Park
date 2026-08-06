@@ -123,9 +123,10 @@ export default function Footer({ shopName = 'Sri Arumugam Pyro Park', contactNum
               {[
                 { href: '/', label: 'Home' },
                 { href: '/#product-list', label: 'Products' },
-                { href: '/safety-tips', label: 'Safty Tips' },
+                { href: '/safety-tips', label: 'Safety Tips' },
                 { href: '/payment-info', label: 'Payment Information' },
-                { href: '/cart', label: 'Tracking Order' },
+                { href: '/terms', label: 'Terms of Service' },
+                { href: '/privacy', label: 'Privacy Policy' },
                 { href: '/contact', label: 'Contact Us' },
               ].map((link) => (
                 <li key={link.label}>

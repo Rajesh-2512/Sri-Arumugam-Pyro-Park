@@ -1,10 +1,20 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import type { Metadata } from 'next';
 import ProductCatalogView from '@/components/shop/ProductCatalogView';
 import DiwaliCountdown from '@/components/shop/DiwaliCountdown';
 import HeroCarousel from '@/components/shop/HeroCarousel';
 import HomeExtraSections from '@/components/shop/HomeExtraSections';
+import GiftBoxesSection from '@/components/shop/GiftBoxesSection';
+import { getActiveGiftBoxes } from '@/services/giftbox.actions';
 import { Sparkles, Flame, ShieldCheck } from 'lucide-react';
 import type { Product } from '@/types/product';
+
+export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Sri Arumugam Pyro Park | Direct Sivakasi Diwali Crackers Online',
+  description: 'Buy Sivakasi Diwali crackers and fireworks gift boxes online at Sri Arumugam Pyro Park. Direct factory outlet prices, 100% legal compliance & fast transport.',
+};
 
 interface SearchParams {
   category?: string;
@@ -15,6 +25,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const category = resolvedParams?.category;
 
   const supabase = await createServerSupabaseClient();
+
+  // Fetch active gift boxes
+  const { data: giftBoxes } = await getActiveGiftBoxes();
 
   // Fetch categories
   const { data: categories } = await supabase
@@ -53,6 +66,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
         {/* Live Diwali Countdown */}
         <DiwaliCountdown />
+
+        {/* Exclusive Gift Boxes Showcase Section */}
+        {giftBoxes && giftBoxes.length > 0 && (
+          <GiftBoxesSection giftBoxes={giftBoxes} globalDiscount={globalDiscount} />
+        )}
 
         {/* Main Collection Quick Order Table & Grid View Switcher */}
         <ProductCatalogView

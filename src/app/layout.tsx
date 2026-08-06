@@ -15,8 +15,19 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Sri Arumugam Pyro Park | Sivakasi Diwali Crackers Online",
+  title: {
+    default: "Sri Arumugam Pyro Park | Sivakasi Diwali Crackers Online",
+    template: "%s | Sri Arumugam Pyro Park",
+  },
   description: "Buy Diwali crackers and gift boxes online at Sri Arumugam Pyro Park, Sivakasi. Best quality Sivakasi crackers at wholesale prices. WhatsApp: 8682913516",
+  icons: {
+    icon: [
+      { url: "/sriarumugamlogo.png" },
+      { url: "/logo.png" }
+    ],
+    shortcut: "/sriarumugamlogo.png",
+    apple: "/sriarumugamlogo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,5 +1,13 @@
 import Link from 'next/link';
-import { CheckCircle2, MessageSquare, ArrowLeft, Sparkles } from 'lucide-react';
+import type { Metadata } from 'next';
+import { CheckCircle2, ArrowLeft, Sparkles, FileText, Flame, PartyPopper } from 'lucide-react';
+import { getOrderById } from '@/services/order.actions';
+import OrderInvoicePDF from '@/components/shop/OrderInvoicePDF';
+
+export const metadata: Metadata = {
+  title: 'Order Confirmed - Official Invoice',
+  description: 'Your order has been placed successfully. View and download your official order PDF invoice.',
+};
 
 interface Props {
   searchParams: Promise<{ id?: string }>;
@@ -7,39 +15,68 @@ interface Props {
 
 export default async function OrderSuccessPage({ searchParams }: Props) {
   const resolvedParams = await searchParams;
-  const orderId = resolvedParams?.id || 'N/A';
-  const shortId = orderId !== 'N/A' ? orderId.split('-')[0].toUpperCase() : 'N/A';
+  const orderId = resolvedParams?.id || '';
+  
+  let order = null;
+  if (orderId) {
+    const res = await getOrderById(orderId);
+    if (res.success && res.data) {
+      order = res.data;
+    }
+  }
+
+  const shortId = orderId ? orderId.split('-')[0].toUpperCase() : 'N/A';
 
   return (
-    <main className="max-w-xl mx-auto px-4 py-16 text-center space-y-8">
+    <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 selection:bg-amber-500 selection:text-white">
       
-      <div className="w-24 h-24 rounded-full bg-emerald-50 border-2 border-emerald-300 text-emerald-600 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/10">
-        <CheckCircle2 className="w-14 h-14" />
-      </div>
-
-      <div className="space-y-3">
-        <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-extrabold px-3.5 py-1 rounded-full uppercase tracking-wider">
-          <Sparkles className="w-3.5 h-3.5" /> Order Received
-        </span>
-        <h1 className="text-3xl font-black text-[#1b2342]">Thank You for Your Order!</h1>
-        <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed font-medium">
-          Your order <strong className="text-amber-600 font-extrabold">#{shortId}</strong> has been logged in our system.
-        </p>
-      </div>
-
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 text-xs text-slate-700 space-y-3 shadow-xs">
-        <div className="flex items-center justify-center gap-2 text-emerald-600 font-extrabold text-sm">
-          <MessageSquare className="w-4 h-4" /> Next Step: WhatsApp Slip Confirmation
+      {/* Animated Header Banner */}
+      <div className="text-center space-y-4 max-w-xl mx-auto animate-in fade-in slide-in-from-top-6 duration-700">
+        
+        {/* Animated Glowing Ring & Checkmark */}
+        <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
+          <div className="relative w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-2xl shadow-emerald-500/40 border-4 border-white animate-in zoom-in-75 duration-500">
+            <CheckCircle2 className="w-11 h-11 stroke-[2.5]" />
+          </div>
+          <Flame className="w-6 h-6 text-amber-500 absolute -top-1 -right-1 animate-bounce" />
+          <Sparkles className="w-5 h-5 text-amber-400 absolute -bottom-1 -left-1 animate-pulse" />
         </div>
-        <p className="text-slate-500 leading-relaxed">
-          If WhatsApp did not open automatically, please contact our helpline to confirm your order details and delivery arrangement.
-        </p>
+
+        <div className="space-y-2.5">
+          <span className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider shadow-md animate-pulse">
+            <PartyPopper className="w-4 h-4" /> Order Placed Successfully
+          </span>
+          
+          <h1 className="text-3xl sm:text-4xl font-black text-[#1b2342] tracking-tight">
+            Thank You for Your Order!
+          </h1>
+          
+          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed font-medium">
+            Your order <strong className="text-amber-600 font-black text-base">#{shortId}</strong> has been logged in our system. Your official order PDF invoice is generated below.
+          </p>
+        </div>
+
       </div>
 
-      <div className="pt-4">
+      {/* PDF Invoice Component with Staggered Entrance */}
+      <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
+        {order ? (
+          <OrderInvoicePDF order={order as any} />
+        ) : (
+          <div className="bg-white rounded-3xl p-8 border border-slate-200/80 text-center space-y-3 shadow-xs">
+            <FileText className="w-10 h-10 text-amber-500 mx-auto" />
+            <h3 className="text-lg font-bold text-slate-800">Order Slip #{shortId}</h3>
+            <p className="text-xs text-slate-500">Your order has been recorded successfully.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="pt-4 flex items-center justify-center gap-4 print:hidden animate-in fade-in duration-1000">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs uppercase tracking-wider px-8 py-4 rounded-2xl shadow-lg shadow-orange-500/20 hover:scale-105 transition-all"
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-xs uppercase tracking-wider px-8 py-4 rounded-2xl shadow-xl shadow-orange-500/25 hover:scale-105 active:scale-95 transition-all"
         >
           <ArrowLeft className="w-4 h-4" /> Return to Homepage
         </Link>
@@ -48,3 +85,5 @@ export default async function OrderSuccessPage({ searchParams }: Props) {
     </main>
   );
 }
+
+

@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { calculateFinalPrice, getEffectiveDiscountPercentage } from '@/lib/discount';
@@ -10,6 +11,22 @@ import type { Product } from '@/types/product';
 
 interface Props {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const supabase = await createServerSupabaseClient();
+  const { data: product } = await supabase
+    .from('products')
+    .select('name, description')
+    .eq('slug', slug)
+    .single();
+
+  if (!product) return { title: 'Product Not Found' };
+  return {
+    title: `${product.name} | Sivakasi Crackers`,
+    description: product.description || `Buy ${product.name} online at direct Sivakasi factory outlet prices.`,
+  };
 }
 
 export default async function ProductDetailPage({ params }: Props) {

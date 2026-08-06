@@ -26,7 +26,7 @@ export interface GlobalSettings {
   shop_name: string;
   contact_number: string;
   global_discount_percentage: number;
-  festival_banner_url: string | null;
+  price_list_url?: string | null;
   is_shop_open: boolean;
   updated_at?: string;
 }

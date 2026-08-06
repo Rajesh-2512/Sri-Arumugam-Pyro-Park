@@ -6,9 +6,11 @@ import { useCartStore } from '@/store/cart.store';
 import { ShoppingBag, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import DownloadPriceListButton from '@/components/shop/DownloadPriceListButton';
 
 const navLinks = [
   { href: '/', label: 'Home' },
+  { href: '/#gift-boxes', label: 'Gift Boxes' },
   { href: '/#product-list', label: 'Products' },
   { href: '/safety-tips', label: 'Safety Tips' },
   { href: '/payment-info', label: 'Payment Information' },
@@ -63,6 +65,9 @@ export default function Navbar({ shopName = 'Sri Arumugam Pyro Park', contactNum
 
           {/* Right Actions */}
           <div className="flex items-center gap-3">
+            {/* Price List PDF Button */}
+            <DownloadPriceListButton variant="compact" />
+
             {/* Shopping Cart Icon Button */}
             <Link
               href="/cart"

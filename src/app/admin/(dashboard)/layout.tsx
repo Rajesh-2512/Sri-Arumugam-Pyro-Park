@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Sparkles, LayoutDashboard, Package, FolderTree, ShoppingBag, Settings, ExternalLink } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Sparkles, LayoutDashboard, Package, FolderTree, ShoppingBag, Settings, ExternalLink, LogOut, Gift } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/products', label: 'Products', icon: Package },
+  { href: '/admin/gift-boxes', label: 'Gift Boxes 🎁', icon: Gift },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
@@ -14,6 +16,15 @@ const navItems = [
 
 export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    if (!confirm('Are you sure you want to sign out?')) return;
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/admin/login');
+    router.refresh();
+  };
 
   return (
     <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-[#F8FAFC] text-slate-800 selection:bg-amber-500 selection:text-white font-sans">
@@ -65,11 +76,18 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
           >
             <ExternalLink className="w-3.5 h-3.5 text-amber-600" /> View Live Storefront
           </Link>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-red-50 hover:bg-red-100 text-xs font-extrabold text-red-600 hover:text-red-700 transition-all border border-red-200/80 cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" /> Sign Out / Logout
+          </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden p-6 sm:p-8">
+      <main className="flex-1 flex flex-col h-full min-h-0 overflow-y-auto p-6 sm:p-8">
         {children}
       </main>
 

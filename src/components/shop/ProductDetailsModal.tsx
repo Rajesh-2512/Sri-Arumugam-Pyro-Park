@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import SafeProductImage from '@/components/shop/SafeProductImage';
 import { formatCurrency, getProductImage } from '@/lib/utils';
 import { calculateFinalPrice, getEffectiveDiscountPercentage } from '@/lib/discount';
 import { useCartStore } from '@/store/cart.store';
@@ -85,20 +86,13 @@ export default function ProductDetailsModal({ product, globalDiscount, onClose }
           
           {/* Product Image */}
           <div className="md:col-span-5 relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/80 shadow-xs flex items-center justify-center">
-            {imageUrl ? (
-              <Image
-                src={imageUrl}
-                alt={product.name}
-                fill
-                sizes="(max-width: 768px) 100vw, 300px"
-                className="object-cover"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-amber-500">
-                <Flame className="w-12 h-12" />
-                <span className="text-xs font-bold">Fireworks</span>
-              </div>
-            )}
+            <SafeProductImage
+              src={imageUrl}
+              alt={product.name}
+              fill
+              sizes="(max-width: 768px) 100vw, 300px"
+              className="object-cover"
+            />
 
             {effectiveDiscount > 0 && (
               <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-black px-3 py-1 rounded-xl shadow-md">

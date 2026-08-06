@@ -30,6 +30,19 @@ export async function placeOrder(input: PlaceOrderInput) {
   }
   const { items, ...orderData } = parsed.data;
 
+  // Check if store is open for orders
+  const { data: settings } = await adminSupabase
+    .from('global_settings')
+    .select('is_shop_open')
+    .single();
+
+  if (settings && settings.is_shop_open === false) {
+    return {
+      success: false,
+      error: '⚠️ Shop is currently closed for new orders. Orders placed now will be processed when shop reopens.',
+    };
+  }
+
   // Insert main order
   const { data: order, error: orderError } = await adminSupabase
     .from('orders')
@@ -80,9 +93,31 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
     .update({ status })
     .eq('id', orderId);
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    console.error('Failed to update order status:', error);
+    return { success: false, error: error.message };
+  }
+
   revalidatePath('/admin/orders');
   return { success: true };
+}
+
+export async function getOrdersByPhone(phone: string) {
+  const cleanPhone = phone.trim();
+  if (!cleanPhone || cleanPhone.length < 10) return { success: false, data: [] };
+
+  const { data, error } = await adminSupabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('phone', cleanPhone)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching orders by phone:', error);
+    return { success: false, data: [] };
+  }
+
+  return { success: true, data: data || [] };
 }
 
 export async function getOrders() {
@@ -94,3 +129,15 @@ export async function getOrders() {
   if (error) return { success: false, data: null, error: error.message };
   return { success: true, data };
 }
+
+export async function getOrderById(orderId: string) {
+  const { data, error } = await adminSupabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('id', orderId)
+    .single();
+
+  if (error) return { success: false, data: null, error: error.message };
+  return { success: true, data };
+}
+

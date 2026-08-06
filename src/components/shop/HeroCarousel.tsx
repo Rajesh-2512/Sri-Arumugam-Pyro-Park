@@ -8,11 +8,12 @@ import {
   Sparkles,
   ShieldCheck,
   Truck,
+  Zap,
+  Percent,
   Star,
   FileText,
-  Percent,
-  Zap,
 } from 'lucide-react';
+import DownloadPriceListButton from '@/components/shop/DownloadPriceListButton';
 
 // Firework particle system for Light Theme
 interface Particle {
@@ -292,13 +293,7 @@ export default function HeroCarousel() {
                 <ArrowRight className="w-4 h-4" />
               </a>
 
-              <a
-                href="#pricelist"
-                className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs px-6 py-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-amber-400 transition-all cursor-pointer"
-              >
-                <FileText className="w-4 h-4 text-amber-600" />
-                <span>Download Price List</span>
-              </a>
+              <DownloadPriceListButton variant="hero" />
             </div>
 
             {/* Order Terms & Support Hotline Strip */}

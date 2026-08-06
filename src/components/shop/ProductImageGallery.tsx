@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import SafeProductImage from '@/components/shop/SafeProductImage';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Flame } from 'lucide-react';
 
@@ -17,28 +18,16 @@ export default function ProductImageGallery({ images, productName, effectiveDisc
   const prevImage = () => setSelectedIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
   const nextImage = () => setSelectedIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
 
-  if (images.length === 0) {
-    return (
-      <div className="relative aspect-square rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 shadow-inner">
-        <div className="w-full h-full flex flex-col items-center justify-center text-amber-500 bg-gradient-to-br from-slate-50 to-slate-100">
-          <Flame className="w-20 h-20 mb-2 animate-pulse" />
-          <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">Sivakasi Sparklers</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-3">
       {/* Main Image */}
       <div className="group relative aspect-square rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 shadow-inner">
-        <Image
+        <SafeProductImage
           src={images[selectedIndex]}
           alt={`${productName} - Image ${selectedIndex + 1}`}
           fill
           sizes="(max-width: 768px) 100vw, 500px"
           className="object-cover transition-transform duration-300"
-          priority
         />
 
         {/* Prev / Next Arrows */}
@@ -88,7 +77,7 @@ export default function ProductImageGallery({ images, productName, effectiveDisc
                   : 'border-slate-200 hover:border-slate-400 opacity-70 hover:opacity-100'
               }`}
             >
-              <Image
+              <SafeProductImage
                 src={img}
                 alt={`${productName} thumbnail ${i + 1}`}
                 fill

@@ -3,7 +3,7 @@ import Footer from '@/components/shop/Footer';
 import MarqueeTicker from '@/components/shop/MarqueeTicker';
 import ScrollToTop from '@/components/shop/ScrollToTop';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { MessageSquare } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabaseClient();
@@ -42,7 +42,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
           className="w-14 h-14 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
           title="Contact on WhatsApp"
         >
-          <MessageSquare className="w-7 h-7 fill-white" />
+          <WhatsAppIcon className="w-7 h-7 fill-white" />
         </a>
       </div>
 

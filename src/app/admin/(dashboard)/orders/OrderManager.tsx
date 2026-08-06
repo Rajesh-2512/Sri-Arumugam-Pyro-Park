@@ -5,6 +5,7 @@ import type { Order, OrderStatus } from '@/types/order';
 import { updateOrderStatus } from '@/services/order.actions';
 import { formatCurrency } from '@/lib/utils';
 import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 
 const statusOptions: { value: OrderStatus; label: string; icon: any; color: string }[] = [
   { value: 'pending', label: 'Pending Review', icon: Clock, color: 'text-amber-700 bg-amber-50 border-amber-200' },
@@ -282,7 +283,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2 py-0.5 rounded-md font-bold text-[10px] hover:bg-emerald-100 transition-all cursor-pointer hover:scale-105"
                           >
-                            <MessageSquare className="w-3 h-3 cursor-pointer" /> WhatsApp
+                            <WhatsAppIcon className="w-3 h-3 cursor-pointer" /> WhatsApp
                           </a>
                         </div>
                       </td>
