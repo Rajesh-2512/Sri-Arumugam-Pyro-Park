@@ -84,28 +84,36 @@ export default function Footer({ shopName = 'Sri Arumugam Pyro Park', contactNum
             {/* Branded Social Media Buttons */}
             <div className="flex items-center gap-3 pt-2">
               <a
-                href="#"
+                href="https://www.facebook.com/profile.php?id=61550216464067&mibextid=ZbWKwL"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Facebook"
                 className="w-11 h-11 rounded-xl bg-[#1e2230] border border-slate-800 hover:bg-[#1877F2] hover:border-[#1877F2] text-slate-300 hover:text-white flex items-center justify-center transition-all duration-300 shadow-md hover:scale-110"
               >
                 <FacebookIcon className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://x.com/SAPP_SIVAKASI?s=08"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Twitter / X"
                 className="w-11 h-11 rounded-xl bg-[#1e2230] border border-slate-800 hover:bg-black hover:border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-all duration-300 shadow-md hover:scale-110"
               >
                 <TwitterIcon className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://www.instagram.com/sriarumugampyropark/"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Instagram"
                 className="w-11 h-11 rounded-xl bg-[#1e2230] border border-slate-800 hover:bg-gradient-to-tr hover:from-amber-500 hover:via-rose-500 hover:to-purple-600 hover:border-transparent text-slate-300 hover:text-white flex items-center justify-center transition-all duration-300 shadow-md hover:scale-110"
               >
                 <InstagramIcon className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://youtube.com/@SriArumugamPyroPark?si=a1eqqiWAc2RU7VIX"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="YouTube"
                 className="w-11 h-11 rounded-xl bg-[#1e2230] border border-slate-800 hover:bg-[#FF0000] hover:border-[#FF0000] text-slate-300 hover:text-white flex items-center justify-center transition-all duration-300 shadow-md hover:scale-110"
               >
@@ -187,10 +195,10 @@ export default function Footer({ shopName = 'Sri Arumugam Pyro Park', contactNum
           <div className="flex items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-2 text-base sm:text-lg font-bold text-white tracking-wide font-[family-name:var(--font-outfit)]">
               <MapPin className="w-5 h-5 text-amber-500" />
-              <span>Store Location Map — Sivakasi</span>
+              <span>Store Location Map — Sri Arumugam Pyro Park Sivakasi</span>
             </div>
             <a
-              href={mapUrl}
+              href="https://www.google.com/maps/place/Sri+Arumugam+Pyro+Park/data=!4m2!3m1!1s0x0:0xfac1f45c99ab30ef?sa=X&ved=1t:2428&ictx=111"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-sm font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 transition-all px-4 py-2 rounded-xl shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 active:scale-95"
@@ -201,7 +209,7 @@ export default function Footer({ shopName = 'Sri Arumugam Pyro Park', contactNum
           </div>
 
           <a
-            href={mapUrl}
+            href="https://www.google.com/maps/place/Sri+Arumugam+Pyro+Park/data=!4m2!3m1!1s0x0:0xfac1f45c99ab30ef?sa=X&ved=1t:2428&ictx=111"
             target="_blank"
             rel="noopener noreferrer"
             className="group relative block w-full rounded-2xl overflow-hidden border border-slate-800 hover:border-amber-500/50 shadow-2xl transition-all duration-300"
@@ -209,7 +217,7 @@ export default function Footer({ shopName = 'Sri Arumugam Pyro Park', contactNum
           >
             <div className="relative w-full h-[250px] sm:h-[300px]">
               <iframe
-                src="https://maps.google.com/maps?q=Sivakasi,+Tamil+Nadu&t=&z=14&ie=UTF8&iwloc=&output=embed"
+                src="https://maps.google.com/maps?q=Sri+Arumugam+Pyro+Park+Sivakasi&t=&z=15&ie=UTF8&iwloc=&output=embed"
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}
@@ -237,7 +245,7 @@ export default function Footer({ shopName = 'Sri Arumugam Pyro Park', contactNum
               <span>Legal & Statutory Compliance Notice</span>
             </div>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed font-sans">
-              As per 2018 supreme court order, online sale of firecrackers are not permitted! We value our customers and at the same time, respect jurisdiction. We request you to add your products to the cart and submit the required crackers through the enquiry button. We will contact you within 24 hrs and confirm the order through WhatsApp or phone call. Please add and submit your enquiries and enjoy your Diwali with Harish Crackers Shop. Our License No.----. Gowsalya Traders Shop as a company following 100% legal & statutory compliances and all our shops, go-downs are maintained as per the explosive acts. We send the parcels through registered and legal transport service providers as like every other major companies in Sivakasi is doing so.
+              As per 2018 supreme court order, online sale of firecrackers are not permitted! We value our customers and at the same time, respect jurisdiction. We request you to add your products to the cart and submit the required crackers through the enquiry button. We will contact you within 24 hrs and confirm the order through WhatsApp or phone call. Please add and submit your enquiries and enjoy your Diwali with Sri Arumugam Pyro Park. Our License No.----.  Shop as a company following 100% legal & statutory compliances and all our shops, go-downs are maintained as per the explosive acts. We send the parcels through registered and legal transport service providers as like every other major companies in Sivakasi is doing so.
             </p>
           </div>
         </div>

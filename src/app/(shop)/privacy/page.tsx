@@ -1,9 +1,21 @@
 import Link from 'next/link';
 import { ShieldCheck, UserCheck, EyeOff, Cookie, Lock, CheckCircle2, ChevronRight } from 'lucide-react';
 
-export const metadata = {
-  title: 'Privacy Policy | Sri Arumugam Pyro Park',
-  description: 'Privacy Policy for Sri Arumugam Pyro Park detailing personal identification information collection, cookies, data protection, and policy acceptance.',
+import type { Metadata } from 'next';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://sriarumugampyropark.com';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy | Sri Arumugam Pyro Park Sivakasi',
+  description: 'Privacy policy for Sri Arumugam Pyro Park Sivakasi detailing personal identification data collection, cookies policy, data security, and customer protection.',
+  keywords: [
+    'sri arumugam pyro park privacy policy',
+    'sivakasi crackers privacy policy',
+    'sivakasi crackers customer data safety',
+  ],
+  alternates: {
+    canonical: `${SITE_URL}/privacy`,
+  },
 };
 
 export default function PrivacyPolicyPage() {

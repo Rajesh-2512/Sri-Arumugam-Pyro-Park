@@ -225,6 +225,36 @@ export interface Database {
         };
         Relationships: [];
       };
+      feedbacks: {
+        Row: {
+          id: string;
+          name: string;
+          phone_or_order: string | null;
+          rating: number;
+          message: string;
+          is_approved: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          phone_or_order?: string | null;
+          rating?: number;
+          message: string;
+          is_approved?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          phone_or_order?: string | null;
+          rating?: number;
+          message?: string;
+          is_approved?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

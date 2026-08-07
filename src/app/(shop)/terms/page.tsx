@@ -1,9 +1,22 @@
 import Link from 'next/link';
 import { ShieldCheck, FileText, Truck, CreditCard, RefreshCw, AlertTriangle, ChevronRight, CheckCircle2 } from 'lucide-react';
 
-export const metadata = {
-  title: 'Terms of Service | Sri Arumugam Pyro Park',
-  description: 'Terms of service, order placement rules, minimum order values, shipping policies, payment details, and disclaimers for Sri Arumugam Pyro Park.',
+import type { Metadata } from 'next';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://sriarumugampyropark.com';
+
+export const metadata: Metadata = {
+  title: 'Terms of Service & Order Policy | Sri Arumugam Pyro Park Sivakasi',
+  description: 'Official Terms of Service, order placement rules, shipping logistics, minimum order limits, payment terms, and cancellation policies for Sri Arumugam Pyro Park Sivakasi Crackers.',
+  keywords: [
+    'sri arumugam pyro park terms',
+    'sivakasi crackers order terms',
+    'sivakasi crackers shipping policy',
+    'crackers minimum order sivakasi',
+  ],
+  alternates: {
+    canonical: `${SITE_URL}/terms`,
+  },
 };
 
 export default function TermsOfServicePage() {

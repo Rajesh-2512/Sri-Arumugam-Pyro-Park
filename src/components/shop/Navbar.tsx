@@ -12,6 +12,7 @@ const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/#gift-boxes', label: 'Gift Boxes' },
   { href: '/#product-list', label: 'Products' },
+  { href: '/track-order', label: 'Track Order' },
   { href: '/safety-tips', label: 'Safety Tips' },
   { href: '/payment-info', label: 'Payment Information' },
   { href: '/contact', label: 'Contact Us' },
@@ -65,8 +66,10 @@ export default function Navbar({ shopName = 'Sri Arumugam Pyro Park', contactNum
 
           {/* Right Actions */}
           <div className="flex items-center gap-3">
-            {/* Price List PDF Button */}
-            <DownloadPriceListButton variant="compact" />
+            {/* Price List PDF Button (Hidden on Mobile, Visible on Desktop) */}
+            <div className="hidden sm:block">
+              <DownloadPriceListButton variant="compact" />
+            </div>
 
             {/* Shopping Cart Icon Button */}
             <Link
@@ -98,7 +101,7 @@ export default function Navbar({ shopName = 'Sri Arumugam Pyro Park', contactNum
       {/* Mobile Navigation Dropdown */}
       <div
         className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${
-          mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          mobileMenuOpen ? 'max-h-[450px] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
         <nav className="px-4 pb-4 space-y-1">
@@ -119,6 +122,10 @@ export default function Navbar({ shopName = 'Sri Arumugam Pyro Park', contactNum
               </Link>
             );
           })}
+          
+          <div className="pt-2 px-2 sm:hidden">
+            <DownloadPriceListButton variant="primary" />
+          </div>
         </nav>
       </div>
     </header>

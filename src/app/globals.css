@@ -17,6 +17,10 @@
   --foreground: #0F172A;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);
@@ -100,7 +104,7 @@ select option {
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 22s linear infinite;
+  animation: marquee 70s linear infinite;
 }
 
 .animate-marquee:hover {

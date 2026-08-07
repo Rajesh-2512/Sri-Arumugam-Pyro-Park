@@ -120,6 +120,56 @@ export async function getOrdersByPhone(phone: string) {
   return { success: true, data: data || [] };
 }
 
+export async function getOrdersByQuery(query: string) {
+  const clean = query.trim().toLowerCase();
+  if (!clean) return { success: false, data: [] };
+
+  const isPhone = /^\d{10}$/.test(clean);
+
+  if (isPhone) {
+    const { data, error } = await adminSupabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('phone', clean)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching orders by phone:', error);
+      return { success: false, data: [] };
+    }
+    return { success: true, data: data || [] };
+  }
+
+  // If query is an Order ID or short hex code (e.g. E59B9B5F)
+  const { data, error } = await adminSupabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('Error fetching orders for ID search:', error);
+    return { success: false, data: [] };
+  }
+
+  const cleanNoDash = clean.replace(/-/g, '');
+  const filtered = (data || []).filter((ord) => {
+    const ordIdLower = ord.id.toLowerCase();
+    const ordIdNoDash = ordIdLower.replace(/-/g, '');
+    const phone = (ord.phone || '').toLowerCase();
+    const name = (ord.customer_name || '').toLowerCase();
+
+    return (
+      ordIdLower.includes(clean) ||
+      ordIdNoDash.includes(cleanNoDash) ||
+      phone.includes(clean) ||
+      name.includes(clean)
+    );
+  });
+
+  return { success: true, data: filtered };
+}
+
 export async function getOrders() {
   const { data, error } = await adminSupabase
     .from('orders')

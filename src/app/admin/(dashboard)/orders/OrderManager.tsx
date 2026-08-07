@@ -73,6 +73,32 @@ function CustomStatusDropdown({ orderId, currentStatus, disabled, onStatusChange
   );
 }
 
+// Helper to format WhatsApp Thank You message template
+function getWhatsAppThankYouLink(order: Order) {
+  const shortId = order.id.split('-')[0].toUpperCase();
+  const itemsSummary = order.order_items && order.order_items.length > 0
+    ? order.order_items.map((i) => `• ${i.product_name} (${i.quantity} qty)`).join('\n')
+    : '';
+
+  const text = `Dear ${order.customer_name},
+
+Thank you for your purchase with Sri Arumugam Pyro Park Sivakasi! 🎆✨
+
+🧾 Order ID: #${shortId}
+💰 Total Amount: ${formatCurrency(order.total_amount)}
+🚚 Status: ${order.status.toUpperCase()}
+
+${itemsSummary ? `Ordered Items:\n${itemsSummary}\n\n` : ''}Thank you for trusting our Sivakasi Direct Factory Outlet! We truly appreciate your order.
+
+Warm regards,
+Sri Arumugam Pyro Park
+📞 Contact: +91 8682913516 / 6374041238`;
+
+  const cleanPhone = order.phone.replace(/\D/g, '');
+  const phoneWithCountry = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+  return `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(text)}`;
+}
+
 export default function OrderManager({ orders }: { orders: Order[] }) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<Order | null>(null);
@@ -156,7 +182,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
       {/* Page Header */}
       <div className="border-b border-slate-200 pb-3 shrink-0">
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Orders Management</h1>
-        <p className="text-xs text-slate-500 font-medium">Manage placed customer orders, update tracking status, and view item breakdown</p>
+        <p className="text-xs text-slate-500 font-medium">Manage placed customer orders, update tracking status, and share WhatsApp thank you messages</p>
       </div>
 
       {/* Top Filter & Search Controls Bar */}
@@ -259,6 +285,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 filteredOrders.map((order) => {
                   const shortId = order.id.split('-')[0].toUpperCase();
                   const totalItemsCount = order.order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+                  const waUrl = getWhatsAppThankYouLink(order);
 
                   return (
                     <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
@@ -278,12 +305,13 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                             {order.phone}
                           </a>
                           <a
-                            href={`https://wa.me/91${order.phone}`}
+                            href={waUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2 py-0.5 rounded-md font-bold text-[10px] hover:bg-emerald-100 transition-all cursor-pointer hover:scale-105"
+                            className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2.5 py-1 rounded-lg font-extrabold text-[11px] hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all cursor-pointer hover:scale-105 shadow-2xs"
+                            title="Send Thank You & Order Summary template on WhatsApp"
                           >
-                            <WhatsAppIcon className="w-3 h-3 cursor-pointer" /> WhatsApp
+                            <WhatsAppIcon className="w-3.5 h-3.5 cursor-pointer" /> WhatsApp Thank You
                           </a>
                         </div>
                       </td>
@@ -411,20 +439,33 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between border-t border-slate-100 pt-4 shrink-0">
+            {/* Modal Footer with WhatsApp Share Action */}
+            <div className="flex items-center justify-between border-t border-slate-100 pt-4 shrink-0 gap-3">
               <div>
                 <span className="text-xs text-slate-400 uppercase font-extrabold tracking-wider block">Total Amount</span>
                 <span className="text-2xl font-black text-emerald-600">
                   {formatCurrency(selectedOrderForModal.total_amount)}
                 </span>
               </div>
-              <button
-                onClick={() => setSelectedOrderForModal(null)}
-                className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer hover:scale-105"
-              >
-                Close Window
-              </button>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={getWhatsAppThankYouLink(selectedOrderForModal)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all shadow-md cursor-pointer hover:scale-105 flex items-center gap-2"
+                >
+                  <WhatsAppIcon className="w-4 h-4 text-white cursor-pointer" />
+                  <span>Send Thank You on WhatsApp</span>
+                </a>
+
+                <button
+                  onClick={() => setSelectedOrderForModal(null)}
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer hover:scale-105"
+                >
+                  Close Window
+                </button>
+              </div>
             </div>
 
           </div>

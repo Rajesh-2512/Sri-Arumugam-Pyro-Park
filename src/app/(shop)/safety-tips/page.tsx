@@ -12,14 +12,65 @@ import {
   ArrowLeft,
   HeartPulse,
 } from 'lucide-react';
+import { FAQPageJsonLd } from '@/components/seo/JsonLd';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://sriarumugampyropark.com';
+
+const safetyFAQs = [
+  {
+    question: 'What safety precautions should I take while bursting Diwali crackers?',
+    answer:
+      'Always wear protective safety glasses for eye protection, wear tight-fitting 100% cotton clothes, wear covered sturdy footwear, keep water and sand buckets nearby, and use a long incense stick (agarbatti) to light fuses at arm\'s length.',
+  },
+  {
+    question: 'Why is eye protection important during Diwali fireworks?',
+    answer:
+      'Fireworks emit high-speed flying sparks, hot ash, embers, and pressure bursts that can cause severe permanent eye damage. Wearing clear protective safety glasses or eye goggles is mandatory for everyone — both adults lighting fireworks and spectators.',
+  },
+  {
+    question: 'What should I do if a cracker does not burst after lighting?',
+    answer:
+      'NEVER try to re-ignite an un-burst cracker. Wait at least 20 minutes, then soak it in a bucket of water. Never approach or bend over a misfired firework.',
+  },
+  {
+    question: 'What type of clothing should I wear while bursting crackers?',
+    answer:
+      'Wear long-sleeved 100% cotton garments. Avoid synthetic clothes like nylon or polyester as they can catch fire easily and melt onto skin causing severe burns.',
+  },
+  {
+    question: 'What emergency numbers should I keep handy during Diwali?',
+    answer:
+      'Keep these emergency numbers handy: Ambulance — 108, Fire Control — 101. In case of eye contact with sparks, rinse thoroughly with clean cool water and immediately consult an eye specialist (Ophthalmologist).',
+  },
+];
 
 export const metadata: Metadata = {
-  title: 'Fireworks Safety Tips | Sri Arumugam Pyro Park Sivakasi',
-  description: 'Essential Diwali fireworks safety guidelines. Always wear protective glasses for eye safety, wear cotton clothes, and follow official Sivakasi safety rules.',
+  title: 'Diwali Fireworks Safety Tips & Guidelines | Sri Arumugam Pyro Park Sivakasi',
+  description:
+    'Essential Diwali fireworks safety guidelines from Sri Arumugam Pyro Park Sivakasi. Always wear protective glasses for eye safety, wear cotton clothes, keep water nearby, and follow official safety rules for a safe Diwali celebration.',
+  keywords: [
+    'diwali crackers safety tips',
+    'fireworks safety guidelines',
+    'sivakasi crackers safety',
+    'diwali safety rules',
+    'crackers eye protection',
+    'fireworks safety precautions',
+    'how to burst crackers safely',
+  ],
+  alternates: {
+    canonical: `${SITE_URL}/safety-tips`,
+  },
+  openGraph: {
+    title: 'Diwali Fireworks Safety Tips & Guidelines',
+    description: 'Essential safety guidelines for a safe Diwali celebration with fireworks.',
+    url: `${SITE_URL}/safety-tips`,
+  },
 };
 
 export default function SafetyTipsPage() {
   return (
+    <>
+    <FAQPageJsonLd faqs={safetyFAQs} />
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       
       {/* Back to Shop Navigation */}
@@ -246,5 +297,6 @@ export default function SafetyTipsPage() {
       </div>
 
     </main>
+    </>
   );
 }

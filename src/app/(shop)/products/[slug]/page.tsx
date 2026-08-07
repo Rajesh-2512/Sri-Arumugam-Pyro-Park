@@ -3,11 +3,14 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { calculateFinalPrice, getEffectiveDiscountPercentage } from '@/lib/discount';
-import { formatCurrency, getAllProductImages } from '@/lib/utils';
+import { formatCurrency, getAllProductImages, getProductImage } from '@/lib/utils';
 import AddToCartButton from './AddToCartButton';
 import ProductImageGallery from '@/components/shop/ProductImageGallery';
 import { ArrowLeft, ShieldCheck, Truck } from 'lucide-react';
 import type { Product } from '@/types/product';
+import { ProductJsonLd, BreadcrumbJsonLd } from '@/components/seo/JsonLd';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://sriarumugampyropark.com';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -18,14 +21,54 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = await createServerSupabaseClient();
   const { data: product } = await supabase
     .from('products')
-    .select('name, description')
+    .select('name, description, price, image_url, discount')
     .eq('slug', slug)
     .single();
 
   if (!product) return { title: 'Product Not Found' };
+
+  const title = `${product.name} — Buy Online at Sivakasi Factory Outlet Price`;
+  const desc =
+    product.description ||
+    `Buy ${product.name} online at direct Sivakasi factory outlet prices from Sri Arumugam Pyro Park. Genuine quality, wholesale rates, safe delivery across India.`;
+  const imgPath = getProductImage(product.image_url) || '/banner-main.png';
+
   return {
-    title: `${product.name} | Sivakasi Crackers`,
-    description: product.description || `Buy ${product.name} online at direct Sivakasi factory outlet prices.`,
+    title,
+    description: desc,
+    keywords: [
+      product.name,
+      `${product.name} sivakasi`,
+      `buy ${product.name} online`,
+      `${product.name} price`,
+      'sivakasi crackers',
+      'buy diwali crackers online',
+      'crackers online shopping',
+      'sri arumugam pyro park',
+    ],
+    alternates: {
+      canonical: `${SITE_URL}/products/${slug}`,
+    },
+    openGraph: {
+      title,
+      description: desc,
+      url: `${SITE_URL}/products/${slug}`,
+      type: 'website',
+      images: [
+        {
+          url: imgPath,
+          width: 800,
+          height: 800,
+          alt: `${product.name} — Sri Arumugam Pyro Park Sivakasi`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: desc,
+      images: [imgPath],
+    },
   };
 }
 
@@ -55,9 +98,32 @@ export default async function ProductDetailPage({ params }: Props) {
   const finalPrice = calculateFinalPrice(product.price, product.discount, globalDiscount);
   const effectiveDiscount = getEffectiveDiscountPercentage(product.discount, globalDiscount);
   const images = getAllProductImages(product.image_url);
+  const primaryImage = getProductImage(product.image_url) || '/banner-main.png';
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+
+      {/* ─── SEO: Product JSON-LD + Breadcrumb JSON-LD ─── */}
+      <ProductJsonLd
+        name={product.name}
+        description={
+          product.description ||
+          `Buy ${product.name} online at direct Sivakasi factory outlet prices from Sri Arumugam Pyro Park.`
+        }
+        image={primaryImage.startsWith('http') ? primaryImage : `${SITE_URL}${primaryImage}`}
+        price={finalPrice}
+        slug={slug}
+        category={product.categories?.name || 'Fireworks & Crackers'}
+        inStock={product.stock > 0}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: SITE_URL },
+          { name: 'Crackers Catalog', url: `${SITE_URL}/#product-list` },
+          { name: product.name, url: `${SITE_URL}/products/${slug}` },
+        ]}
+      />
+
       <Link
         href="/"
         className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-amber-600 mb-8 transition-colors"

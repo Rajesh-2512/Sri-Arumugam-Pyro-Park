@@ -147,7 +147,7 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
         body: tableData,
         theme: 'striped',
         headStyles: {
-          fillColor: [27, 35, 66],
+          fillColor: [234, 88, 12], // Vibrant Brand Orange
           textColor: [255, 255, 255],
           fontStyle: 'bold',
           fontSize: 9,
@@ -172,23 +172,22 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
       // Get final Y position after table
       const finalY = (doc as any).lastAutoTable.finalY + 8;
 
-      // Summary Card / Total Box
-      doc.setFillColor(27, 35, 66);
+      // Summary Card / Total Box — Elegant Light Theme
+      doc.setFillColor(255, 247, 237); // Soft Orange Light Fill
       doc.roundedRect(14, finalY, 182, 18, 3, 3, 'F');
+      doc.setLineWidth(0.4);
+      doc.setDrawColor(234, 88, 12); // Brand Orange Border
+      doc.roundedRect(14, finalY, 182, 18, 3, 3, 'D');
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(16, 185, 129); // Emerald
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42); // Slate 900
       doc.text('Payment Status: Manual Confirmation / COD', 20, finalY + 11);
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(255, 255, 255);
-      doc.text('Grand Total:', 140, finalY + 11);
-
-      doc.setFontSize(14);
-      doc.setTextColor(251, 191, 36); // Amber
-      doc.text(`Rs. ${order.total_amount.toFixed(2)}`, 190, finalY + 11.5, { align: 'right' });
+      doc.setFontSize(13);
+      doc.setTextColor(234, 88, 12); // Brand Orange
+      doc.text(`Grand Total: Rs. ${order.total_amount.toFixed(2)}`, 190, finalY + 11.5, { align: 'right' });
 
       // Footer
       const footerY = finalY + 28;
@@ -321,7 +320,7 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
             <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#1b2342] text-white font-extrabold uppercase tracking-wider text-[11px] select-none">
+                  <tr className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white font-extrabold uppercase tracking-wider text-[11px] select-none">
                     <th className="py-3.5 px-4 text-center w-12">#</th>
                     <th className="py-3.5 px-4">Item Name</th>
                     <th className="py-3.5 px-4 text-center">Qty</th>
@@ -336,7 +335,7 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
                       <td className="py-3.5 px-4 font-bold text-[#1b2342]">{item.product_name}</td>
                       <td className="py-3.5 px-4 text-center font-extrabold text-amber-600 bg-amber-500/5">{item.quantity}</td>
                       <td className="py-3.5 px-4 text-right text-slate-600 font-semibold">{formatCurrency(item.price)}</td>
-                      <td className="py-3.5 px-4 text-right font-black text-emerald-600">{formatCurrency(item.price * item.quantity)}</td>
+                      <td className="py-3.5 px-4 text-right font-black text-orange-600">{formatCurrency(item.price * item.quantity)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -345,17 +344,17 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
           </div>
 
           {/* Pricing Total Summary */}
-          <div className="flex flex-col sm:flex-row justify-between items-center bg-[#1b2342] text-white p-6 rounded-2xl gap-4 select-none">
+          <div className="flex flex-col sm:flex-row justify-between items-center bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white p-6 rounded-2xl gap-4 select-none">
             <div className="space-y-1 text-center sm:text-left">
-              <div className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
+              <div className="inline-flex items-center gap-1.5 text-xs text-white font-bold">
                 <CheckCircle2 className="w-4 h-4" /> Order Submitted Successfully
               </div>
-              <p className="text-[11px] text-slate-400">Payment Status: Manual Confirmation / COD</p>
+              <p className="text-[11px] text-orange-100 font-medium">Payment Status: Manual Confirmation / COD</p>
             </div>
 
-            <div className="text-center sm:text-right border-t sm:border-t-0 border-slate-700 pt-3 sm:pt-0 w-full sm:w-auto">
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Grand Total Amount</p>
-              <p className="text-3xl font-black text-amber-400">{formatCurrency(order.total_amount)}</p>
+            <div className="text-center sm:text-right border-t sm:border-t-0 border-white/20 pt-3 sm:pt-0 w-full sm:w-auto">
+              <p className="text-xs text-orange-100 font-bold uppercase tracking-wider">Grand Total Amount</p>
+              <p className="text-3xl font-black text-white">{formatCurrency(order.total_amount)}</p>
             </div>
           </div>
 
