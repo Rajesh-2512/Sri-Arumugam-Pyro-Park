@@ -251,64 +251,64 @@ export default function ProductManager({ products, categories }: Props) {
       {/* Products Table with Clickable Sort Headers & Internal Scroll */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="overflow-y-auto overflow-x-auto flex-1 h-full">
-          <table className="w-full text-left text-xs text-slate-700 relative">
+          <table className="w-full text-left text-xs text-slate-700 relative min-w-[950px]">
             <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 font-extrabold uppercase tracking-wider border-b border-slate-200 shadow-2xs">
               <tr>
                 <th
                   onClick={() => handleSort('name')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[220px]"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Item</span>
                     {renderSortIcon('name')}
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('category')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[150px]"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Category</span>
                     {renderSortIcon('category')}
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('price')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[120px]"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Base Price</span>
                     {renderSortIcon('price')}
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('discount')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[120px]"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Discount</span>
                     {renderSortIcon('discount')}
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('stock')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[110px]"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Stock</span>
                     {renderSortIcon('stock')}
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('is_active')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[120px]"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Status</span>
                     {renderSortIcon('is_active')}
                   </div>
                 </th>
-                <th className="py-3.5 px-4 text-right bg-slate-50">Actions</th>
+                <th className="py-3.5 px-4 text-right bg-slate-50 min-w-[120px] whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -329,7 +329,6 @@ export default function ProductManager({ products, categories }: Props) {
                         </div>
                       <div>
                         <span className="font-bold text-slate-900 block">{p.name}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">/slug: {p.slug}</span>
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-600">{p.categories?.name || 'Uncategorized'}</td>
@@ -380,192 +379,240 @@ export default function ProductManager({ products, categories }: Props) {
 
       {/* Product Create / Edit Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 w-full max-w-5xl shadow-2xl space-y-6 max-h-[92vh] overflow-y-auto my-auto">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-extrabold text-base text-slate-900">
-                {editingProduct ? 'Edit Product' : 'Add New Crackers Product'}
-              </h3>
-              <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
+                  <Flame className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="font-black text-xl text-slate-900">
+                    {editingProduct ? `Edit Product: ${editingProduct.name}` : 'Add New Crackers Product'}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Configure cracker details, pricing, discount percentages, and media assets
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSubmit} className="space-y-6 text-xs">
               
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Product Name *</label>
-                <input
-                  name="name"
-                  defaultValue={editingProduct?.name || ''}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">URL Slug (unique, lowercase) *</label>
-                <input
-                  name="slug"
-                  defaultValue={editingProduct?.slug || ''}
-                  placeholder="flower-pot-special"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 font-mono"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Base Price (₹) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="price"
-                    defaultValue={editingProduct?.price || ''}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Product Discount (%)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    name="discount"
-                    defaultValue={editingProduct?.discount || 0}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Stock Quantity *</label>
-                  <input
-                    type="number"
-                    name="stock"
-                    defaultValue={editingProduct?.stock ?? 100}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Category</label>
-                  <select
-                    name="category_id"
-                    defaultValue={editingProduct?.category_id || 'none'}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="none">-- Select Category --</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Description</label>
-                <textarea
-                  name="description"
-                  rows={2}
-                  defaultValue={editingProduct?.description || ''}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              {/* Multi-Image Upload Area */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-2">Product Images ({imageUrls.length})</label>
+              {/* Spacious 2-Column Form Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 
-                {/* Existing Image Thumbnails */}
-                {imageUrls.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {imageUrls.map((url, i) => (
-                      <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 group/thumb">
-                        <img src={url} alt={`Image ${i + 1}`} className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(i)}
-                          className="absolute inset-0 bg-red-600/70 text-white flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                        {i === 0 && (
-                          <span className="absolute bottom-0 left-0 right-0 bg-amber-500 text-white text-[8px] font-black text-center py-0.5 uppercase">Main</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Upload & URL Input */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl border border-slate-200 flex items-center gap-2 text-xs"
-                  >
-                    <Upload className="w-4 h-4 text-amber-600" /> {uploadingImage ? 'Uploading...' : 'Upload Image'}
-                  </label>
-                  <div className="flex items-center gap-1.5 flex-1 min-w-[180px]">
+                {/* LEFT COLUMN (7-Cols): Product Specification Form */}
+                <div className="lg:col-span-7 space-y-4">
+                  
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">Product Name *</label>
                     <input
-                      type="text"
-                      value={customUrlInput}
-                      onChange={(e) => setCustomUrlInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomUrl(); } }}
-                      placeholder="Or paste image URL..."
-                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                      name="name"
+                      defaultValue={editingProduct?.name || ''}
+                      placeholder="1000 Sound Crackers"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500"
+                      required
                     />
-                    <button
-                      type="button"
-                      onClick={handleAddCustomUrl}
-                      className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-2 rounded-xl text-xs cursor-pointer transition-colors"
-                    >
-                      Add
-                    </button>
                   </div>
-                </div>
-              </div>
 
-              {/* Status Toggle */}
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  name="is_active"
-                  value="true"
-                  defaultChecked={editingProduct ? editingProduct.is_active : true}
-                  id="is_active"
-                  className="w-4 h-4 rounded text-amber-500 bg-slate-50 border-slate-300"
-                />
-                <label htmlFor="is_active" className="font-bold text-slate-700">
-                  Active (Visible on public storefront)
-                </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block font-black text-slate-700 uppercase mb-1">MRP Price (₹) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="price"
+                        defaultValue={editingProduct?.price || ''}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black focus:bg-white focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-black text-slate-700 uppercase mb-1">Discount (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        name="discount"
+                        defaultValue={editingProduct?.discount || 0}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black text-emerald-600 focus:bg-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-black text-slate-700 uppercase mb-1">Stock Quantity *</label>
+                      <input
+                        type="number"
+                        name="stock"
+                        defaultValue={editingProduct?.stock ?? 100}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black focus:bg-white focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">Category</label>
+                    <select
+                      name="category_id"
+                      defaultValue={editingProduct?.category_id || 'none'}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                    >
+                      <option value="none">-- Select Category --</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">Description</label>
+                    <textarea
+                      name="description"
+                      rows={4}
+                      defaultValue={editingProduct?.description || ''}
+                      placeholder="Enter detailed product description, safety instructions, or box specifications..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between">
+                    <label htmlFor="is_active" className="font-extrabold text-slate-800 flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="is_active"
+                        value="true"
+                        defaultChecked={editingProduct ? editingProduct.is_active : true}
+                        id="is_active"
+                        className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 cursor-pointer"
+                      />
+                      <span>Active (Visible on public storefront)</span>
+                    </label>
+                  </div>
+
+                </div>
+
+                {/* RIGHT COLUMN (5-Cols): Product Images Desk */}
+                <div className="lg:col-span-5 space-y-4 bg-slate-50 p-5 rounded-3xl border border-slate-200/80">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <span className="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                      <Upload className="w-4 h-4 text-amber-600" /> Product Media ({imageUrls.length})
+                    </span>
+                  </div>
+
+                  {/* Main Large Image Preview Box */}
+                  <div className="relative w-full h-44 bg-white rounded-2xl border-2 border-dashed border-slate-200 overflow-hidden flex items-center justify-center shadow-2xs">
+                    {imageUrls.length > 0 ? (
+                      <img src={imageUrls[0]} alt="Main preview" className="w-full h-full object-contain p-2" />
+                    ) : (
+                      <div className="text-center space-y-1 p-4">
+                        <Upload className="w-8 h-8 text-slate-300 mx-auto" />
+                        <span className="text-xs text-slate-400 font-bold block">No image uploaded yet</span>
+                        <span className="text-[10px] text-slate-400 block">Upload files or paste URLs below</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Thumbnails Grid */}
+                  {imageUrls.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase block">Uploaded Gallery Items</span>
+                      <div className="grid grid-cols-4 gap-2">
+                        {imageUrls.map((url, i) => (
+                          <div key={i} className="relative aspect-square rounded-xl overflow-hidden border-2 border-amber-300 bg-white group shadow-2xs">
+                            <img src={url} alt={`Image ${i + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(i)}
+                              className="absolute inset-0 bg-red-600/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              title="Delete Image"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            {i === 0 && (
+                              <span className="absolute bottom-0 inset-x-0 bg-amber-500 text-white font-black text-[9px] text-center py-0.5 uppercase">
+                                MAIN
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload Controls */}
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label
+                      htmlFor="image-upload"
+                      className="w-full py-3 bg-white hover:bg-amber-50 text-amber-900 font-extrabold rounded-xl border border-amber-300 flex items-center justify-center gap-2 text-xs shadow-2xs transition-all cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4 text-amber-600" />
+                      <span>{uploadingImage ? 'Uploading Image...' : 'Upload Image File'}</span>
+                    </label>
+
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <input
+                        type="text"
+                        value={customUrlInput}
+                        onChange={(e) => setCustomUrlInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomUrl(); } }}
+                        placeholder="Or paste image URL..."
+                        className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-amber-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomUrl}
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-black px-3.5 py-2 rounded-xl text-xs cursor-pointer transition-colors shadow-2xs shrink-0"
+                      >
+                        Add URL
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
               </div>
 
               {message && (
-                <div className={`p-3 rounded-xl font-bold flex items-center gap-2 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                <div className={`p-4 rounded-2xl font-bold text-xs flex items-center gap-2 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                   {message.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                   {message.text}
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-orange-500/20 hover:scale-[1.01]"
-              >
-                {loading ? 'Saving...' : editingProduct ? 'Update Product' : 'Create Product'}
-              </button>
+              {/* Form Action Button */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="px-6 py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50 hover:scale-[1.02] active:scale-95"
+                >
+                  {loading ? 'Saving Changes...' : editingProduct ? 'Save Product Changes' : 'Create Product Now'}
+                </button>
+              </div>
 
             </form>
 

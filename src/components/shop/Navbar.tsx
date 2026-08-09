@@ -10,7 +10,7 @@ import DownloadPriceListButton from '@/components/shop/DownloadPriceListButton';
 
 const navLinks = [
   { href: '/', label: 'Home' },
-  { href: '/#gift-boxes', label: 'Gift Boxes' },
+  { href: '/#gift-boxes', label: 'Combo Boxes' },
   { href: '/#product-list', label: 'Products' },
   { href: '/track-order', label: 'Track Order' },
   { href: '/safety-tips', label: 'Safety Tips' },

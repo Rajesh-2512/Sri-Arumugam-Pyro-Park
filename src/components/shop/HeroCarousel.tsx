@@ -246,7 +246,7 @@ export default function HeroCarousel() {
 
             {/* Narrative Subtitle */}
             <p className="text-sm sm:text-base md:text-lg text-slate-600 font-medium leading-relaxed max-w-2xl mx-auto lg:mx-0">
-              Buy genuine Sivakasi firecrackers online at <strong className="text-amber-700 font-bold underline decoration-amber-400/60">direct wholesale factory outlet rates</strong>. Over 150+ premium products, custom gift boxes, and fast nationwide delivery.
+              Buy genuine Sivakasi firecrackers online at <strong className="text-amber-700 font-bold underline decoration-amber-400/60">direct wholesale factory outlet rates</strong>. Over 150+ premium products, custom combo boxes, and fast nationwide delivery.
             </p>
 
             {/* 3 Key Value Proposition Cards */}

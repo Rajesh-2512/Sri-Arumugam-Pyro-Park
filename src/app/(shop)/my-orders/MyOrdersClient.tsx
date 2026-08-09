@@ -8,7 +8,7 @@ import {
   getOrderHistoryFromCookie,
   CustomerOrderHistoryItem,
 } from '@/lib/customer-cookies';
-import { Package, Search, Phone, Clock, FileText, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Package, Search, Phone, Clock, FileText, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Loader2, Download } from 'lucide-react';
 import Link from 'next/link';
 
 export default function MyOrdersClient() {
@@ -140,9 +140,9 @@ export default function MyOrdersClient() {
                 <div className="flex justify-end pt-1">
                   <Link
                     href={`/order-success?id=${ord.id}`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-orange-600 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-colors shadow-sm"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
                   >
-                    <FileText className="w-4 h-4" /> Download PDF Invoice <ArrowRight className="w-3.5 h-3.5" />
+                    <Download className="w-4 h-4 text-white" /> Download PDF Invoice <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
@@ -193,9 +193,9 @@ export default function MyOrdersClient() {
                 <div className="flex justify-end pt-1">
                   <Link
                     href={`/order-success?id=${ord.id}`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-orange-600 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-colors shadow-sm"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
                   >
-                    <FileText className="w-4 h-4" /> Download PDF Invoice <ArrowRight className="w-3.5 h-3.5" />
+                    <Download className="w-4 h-4 text-white" /> Download PDF Invoice <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               </div>

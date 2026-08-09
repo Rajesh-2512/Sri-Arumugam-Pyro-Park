@@ -4,7 +4,6 @@ const tickerItems = [
   { text: 'PREMIUM QUALITY VERIFIED FIREWORKS', color: 'text-yellow-300' },
   { text: 'DIWALI 2026 BOOKINGS OPEN! ORDER NOW!', color: 'text-white' },
   { text: '100% SIVAKASI DIRECT FACTORY PRICE', color: 'text-yellow-300' },
-  { text: 'ALL INDIA DOORSTEP DELIVERY AVAILABLE', color: 'text-white' },
   { text: 'WHATSAPP ORDER: 8682913516, 6374041238', color: 'text-yellow-300' },
   { text: 'ENQUIRY: 6379959428, 6374041238', color: 'text-white' },
   { text: 'MIN ORDER ₹3,000 (TN) | ₹5,000 (OTHERS)', color: 'text-yellow-300' },

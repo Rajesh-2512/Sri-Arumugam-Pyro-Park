@@ -4,8 +4,10 @@ import { useState, useMemo } from 'react';
 import type { Order, OrderStatus } from '@/types/order';
 import { updateOrderStatus } from '@/services/order.actions';
 import { formatCurrency } from '@/lib/utils';
-import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown } from 'lucide-react';
+import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown, Download, CreditCard, DollarSign, Edit2, FileText } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
+import { generateInvoicePDF, generateGSTInvoicePDF } from '@/lib/invoicePdfGenerator';
+import { updateOrderPaymentDetails } from '@/services/order.actions';
 
 const statusOptions: { value: OrderStatus; label: string; icon: any; color: string }[] = [
   { value: 'pending', label: 'Pending Review', icon: Clock, color: 'text-amber-700 bg-amber-50 border-amber-200' },
@@ -14,6 +16,7 @@ const statusOptions: { value: OrderStatus; label: string; icon: any; color: stri
   { value: 'dispatched', label: 'Dispatched', icon: Truck, color: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
   { value: 'delivered', label: 'Delivered', icon: CheckCircle2, color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
   { value: 'cancelled', label: 'Cancelled', icon: XCircle, color: 'text-red-700 bg-red-50 border-red-200' },
+  { value: 'refunded', label: 'Refunded', icon: RotateCcw, color: 'text-rose-700 bg-rose-50 border-rose-200' },
 ];
 
 interface CustomStatusDropdownProps {
@@ -33,10 +36,10 @@ function CustomStatusDropdown({ orderId, currentStatus, disabled, onStatusChange
         type="button"
         disabled={disabled}
         onClick={() => setOpen(!open)}
-        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase border flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-2xs ${currentObj.color}`}
+        className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold uppercase border flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-2xs whitespace-nowrap ${currentObj.color}`}
       >
-        <span>{currentObj.label}</span>
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        <span className="whitespace-nowrap">{currentObj.label}</span>
+        <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
@@ -103,11 +106,91 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<Order | null>(null);
 
+  // Payment Update Modal State
+  const [paymentModalOrder, setPaymentModalOrder] = useState<Order | null>(null);
+  const [newPaidAmount, setNewPaidAmount] = useState<string>('');
+  const [updatingPayment, setUpdatingPayment] = useState(false);
+
   // Search & Filter & Sort State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const getOrderPaymentBreakdown = (order: Order) => {
+    let paid: number | null = null;
+    let remaining: number | null = null;
+
+    if (order.remaining_amount !== undefined && order.remaining_amount !== null) {
+      remaining = Number(order.remaining_amount);
+    }
+    if (order.paid_amount !== undefined && order.paid_amount !== null) {
+      paid = Number(order.paid_amount);
+      if (remaining === null) {
+        remaining = Math.max(0, order.total_amount - paid);
+      }
+    }
+
+    // Fallback to parsing order.notes if database fields were null/empty
+    if (order.notes) {
+      const remMatch = order.notes.match(/Remaining:\s*₹?\s*([\d.]+)/i);
+      const paidMatch = order.notes.match(/Paid:\s*₹?\s*([\d.]+)/i);
+
+      if (remMatch && remMatch[1]) {
+        const parsedRem = parseFloat(remMatch[1]);
+        if (!isNaN(parsedRem)) {
+          remaining = parsedRem;
+        }
+      }
+      if (paidMatch && paidMatch[1]) {
+        const parsedPaid = parseFloat(paidMatch[1]);
+        if (!isNaN(parsedPaid)) {
+          paid = parsedPaid;
+          if (remaining === null) {
+            remaining = Math.max(0, order.total_amount - paid);
+          }
+        }
+      }
+    }
+
+    const finalRemaining = remaining !== null ? remaining : 0;
+    const finalPaid = paid !== null ? paid : Math.max(0, order.total_amount - finalRemaining);
+
+    return {
+      paidAmount: finalPaid,
+      remainingAmount: finalRemaining,
+      isPending: finalRemaining > 0,
+    };
+  };
+
+  const handleOpenPaymentModal = (order: Order) => {
+    setPaymentModalOrder(order);
+    const breakdown = getOrderPaymentBreakdown(order);
+    setNewPaidAmount(breakdown.paidAmount.toString());
+  };
+
+  const handleSavePaymentUpdate = async () => {
+    if (!paymentModalOrder) return;
+    const paidVal = parseFloat(newPaidAmount);
+    if (isNaN(paidVal) || paidVal < 0) {
+      alert('Please enter a valid paid amount.');
+      return;
+    }
+
+    setUpdatingPayment(true);
+    const res = await updateOrderPaymentDetails(
+      paymentModalOrder.id,
+      paidVal,
+      paymentModalOrder.total_amount
+    );
+    setUpdatingPayment(false);
+
+    if (res.success) {
+      setPaymentModalOrder(null);
+    } else {
+      alert('Failed to update payment: ' + res.error);
+    }
+  };
 
   const handleSort = (col: string) => {
     if (sortColumn === col) {
@@ -177,16 +260,16 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
   };
 
   return (
-    <div className="flex flex-col h-full space-y-4 overflow-hidden">
+    <div className="space-y-4 max-w-7xl mx-auto w-full pb-10">
       
       {/* Page Header */}
-      <div className="border-b border-slate-200 pb-3 shrink-0">
+      <div className="border-b border-slate-200 pb-3">
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Orders Management</h1>
         <p className="text-xs text-slate-500 font-medium">Manage placed customer orders, update tracking status, and share WhatsApp thank you messages</p>
       </div>
 
       {/* Top Filter & Search Controls Bar */}
-      <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs flex flex-wrap items-center gap-3 shrink-0 text-xs">
+      <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs flex flex-wrap items-center gap-3 text-xs">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -234,110 +317,158 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
         </span>
       </div>
 
-      {/* Orders Table View with Clickable Sort Headers & Internal Scroll */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="overflow-y-auto overflow-x-auto flex-1 h-full">
-          <table className="w-full text-left text-xs text-slate-700 relative">
+      {/* Orders Table View with Clickable Sort Headers */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-x-auto">
+        <table className="w-full text-left text-xs text-slate-700 relative">
             <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 font-extrabold uppercase tracking-wider border-b border-slate-200/80 shadow-2xs">
               <tr>
                 <th
                   onClick={() => handleSort('created_at')}
-                  className="py-4 px-6 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[140px]"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Order ID & Date</span>
                     {renderSortIcon('created_at')}
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('customer_name')}
-                  className="py-4 px-6 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[180px]"
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Customer & Contact</span>
                     {renderSortIcon('customer_name')}
                   </div>
                 </th>
-                <th className="py-4 px-6 bg-slate-50">Delivery Address</th>
-                <th className="py-4 px-6 bg-slate-50">Items List</th>
+                <th className="py-3.5 px-4 bg-slate-50 min-w-[190px] whitespace-nowrap">Delivery Address</th>
+                <th className="py-3.5 px-4 bg-slate-50 min-w-[130px] whitespace-nowrap">Items List</th>
                 <th
                   onClick={() => handleSort('total_amount')}
-                  className="py-4 px-6 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[170px]"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <span>Total Amount</span>
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    <span>Payment & Balance</span>
                     {renderSortIcon('total_amount')}
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('status')}
-                  className="py-4 px-6 text-right bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[150px]"
                 >
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Status & Action</span>
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    <span>Order Status</span>
                     {renderSortIcon('status')}
                   </div>
                 </th>
+                <th className="py-3.5 px-4 text-right bg-slate-50 min-w-[130px] whitespace-nowrap">Bills & GST</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredOrders.length > 0 ? (
                 filteredOrders.map((order) => {
                   const shortId = order.id.split('-')[0].toUpperCase();
-                  const totalItemsCount = order.order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-                  const waUrl = getWhatsAppThankYouLink(order);
+                  const totalItemsCount = (order.order_items && order.order_items.length > 0)
+                    ? order.order_items.reduce((sum, item) => sum + item.quantity, 0)
+                    : 1;
+
+                  // Extract clean customer notes without raw POS metadata
+                  const displayNotes = order.notes && !order.notes.includes('[POS BILLING]') ? order.notes : '';
+
+                  const formattedDate = new Date(order.created_at).toLocaleString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true,
+                  });
 
                   return (
                     <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-4 px-6">
-                        <span className="font-mono font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 block w-fit text-xs">
+                      {/* ORDER ID & DATE */}
+                      <td className="py-3.5 px-4">
+                        <span className="font-mono font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 inline-block text-xs shadow-2xs">
                           #{shortId}
                         </span>
-                        <span className="text-[10px] text-slate-400 block mt-1">
-                          {new Date(order.created_at).toLocaleString('en-IN')}
+                        <span className="text-[10px] font-medium text-slate-500 block mt-1 whitespace-nowrap">
+                          {formattedDate}
                         </span>
                       </td>
 
-                      <td className="py-4 px-6">
-                        <span className="font-extrabold text-slate-900 block text-sm">{order.customer_name}</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <a href={`tel:+91${order.phone}`} className="text-slate-600 font-medium hover:text-amber-600">
-                            {order.phone}
-                          </a>
+                      {/* CUSTOMER & CONTACT */}
+                      <td className="py-3.5 px-4">
+                        <span className="font-extrabold text-slate-900 text-xs block">{order.customer_name}</span>
+                        {(order.aadhar_pan || (order.notes && order.notes.includes('Aadhar'))) && (
+                          <span className="text-[9px] font-mono font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
+                            Aadhar/PAN: {order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1] || 'Attached'}
+                          </span>
+                        )}
+                        <div className="mt-1">
                           <a
-                            href={waUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2.5 py-1 rounded-lg font-extrabold text-[11px] hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all cursor-pointer hover:scale-105 shadow-2xs"
-                            title="Send Thank You & Order Summary template on WhatsApp"
+                            href={`tel:+91${order.phone}`}
+                            className="inline-flex items-center gap-1 text-slate-700 font-bold hover:text-amber-600 text-[11px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-lg border border-slate-200 transition-colors"
                           >
-                            <WhatsAppIcon className="w-3.5 h-3.5 cursor-pointer" /> WhatsApp Thank You
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            <span>{order.phone}</span>
                           </a>
                         </div>
                       </td>
 
-                      <td className="py-4 px-6 max-w-xs">
-                        <p className="font-medium text-slate-700">{order.address}</p>
-                        <p className="text-slate-400 text-[10px] mt-0.5">{order.city} - {order.pincode}</p>
-                        {order.notes && <p className="text-amber-600 italic text-[10px] mt-0.5">"{order.notes}"</p>}
+                      {/* DELIVERY ADDRESS */}
+                      <td className="py-3.5 px-4 max-w-xs">
+                        <p className="font-semibold text-slate-800 text-[11px] leading-snug line-clamp-1">{order.address}</p>
+                        <p className="text-slate-500 font-bold text-[10px] mt-0.5 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-amber-500 shrink-0" />
+                          <span>{order.city} - {order.pincode}</span>
+                        </p>
+                        {displayNotes && <p className="text-amber-600 italic text-[10px] mt-0.5">"{displayNotes}"</p>}
                       </td>
 
-                      <td className="py-4 px-6">
+                      {/* ITEMS LIST */}
+                      <td className="py-3.5 px-4">
                         <button
                           onClick={() => setSelectedOrderForModal(order)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 font-extrabold text-xs transition-all cursor-pointer hover:scale-105 shadow-2xs active:scale-95"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 font-extrabold text-[11px] transition-all cursor-pointer hover:scale-105 shadow-2xs active:scale-95 whitespace-nowrap"
                           title="Click to open full order items popup"
                         >
-                          <Eye className="w-3.5 h-3.5 text-amber-600 cursor-pointer" />
-                          View Items ({totalItemsCount})
+                          <Eye className="w-3.5 h-3.5 text-amber-600" />
+                          <span>View Items ({totalItemsCount})</span>
                         </button>
                       </td>
 
-                      <td className="py-4 px-6 font-black text-slate-900 text-sm">
-                        {formatCurrency(order.total_amount)}
+                      {/* PAYMENT & BALANCE */}
+                      <td className="py-3.5 px-4">
+                        <span className="font-black text-slate-900 text-xs block">
+                          {formatCurrency(order.total_amount)}
+                        </span>
+                        {(() => {
+                          const breakdown = getOrderPaymentBreakdown(order);
+
+                          return (
+                            <div className="mt-1 flex items-center gap-1 flex-wrap">
+                              {breakdown.isPending ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 shadow-2xs whitespace-nowrap">
+                                  Pending: {formatCurrency(breakdown.remainingAmount)}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80 shadow-2xs whitespace-nowrap">
+                                  Fully Paid
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleOpenPaymentModal(order)}
+                                className="inline-flex items-center gap-1 text-[9px] font-black text-amber-900 hover:text-white bg-amber-100 hover:bg-amber-600 px-2 py-0.5 rounded-md border border-amber-300 transition-all cursor-pointer hover:scale-105 shadow-2xs"
+                                title="Click to edit paid amount & balance"
+                              >
+                                <Edit2 className="w-2.5 h-2.5" />
+                                <span>Edit</span>
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </td>
 
-                      <td className="py-4 px-6 text-right">
+                      {/* ORDER STATUS */}
+                      <td className="py-3.5 px-4">
                         <CustomStatusDropdown
                           orderId={order.id}
                           currentStatus={order.status}
@@ -345,19 +476,39 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                           onStatusChange={handleStatusChange}
                         />
                       </td>
+
+                      {/* DOWNLOAD BILL PDFs (Standard & GST Audit Bill) */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => generateInvoicePDF({ ...order, order_items: order.order_items || [] }, true)}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-amber-500 text-slate-700 hover:text-white border border-slate-200 transition-all cursor-pointer hover:scale-105 active:scale-95 inline-flex items-center justify-center shrink-0"
+                            title="Download Standard Customer PDF Receipt"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => generateGSTInvoicePDF({ ...order, order_items: order.order_items || [] }, true)}
+                            className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-[10px] uppercase tracking-wider shadow-2xs transition-all cursor-pointer hover:scale-105 active:scale-95 inline-flex items-center gap-1 shrink-0"
+                            title="Download Formal 18% GST Tax Invoice (For Auditing & Courier Transport)"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-white" />
+                            <span>GST Bill</span>
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     No orders found matching your search or filters.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
       </div>
 
       {/* Separate Order Items Popup Modal Table */}
@@ -418,22 +569,39 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {selectedOrderForModal.order_items?.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                    {selectedOrderForModal.order_items && selectedOrderForModal.order_items.length > 0 ? (
+                      selectedOrderForModal.order_items.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-4 font-bold text-slate-900">
+                            {item.product_name}
+                          </td>
+                          <td className="py-3 px-4 text-center text-slate-600 font-medium">
+                            {formatCurrency(item.price)}
+                          </td>
+                          <td className="py-3 px-4 text-center font-extrabold text-amber-700">
+                            ×{item.quantity}
+                          </td>
+                          <td className="py-3 px-4 text-right font-black text-slate-900">
+                            {formatCurrency(item.price * item.quantity)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-4 font-bold text-slate-900">
-                          {item.product_name}
+                          Combo Box Pack / Order Package
                         </td>
                         <td className="py-3 px-4 text-center text-slate-600 font-medium">
-                          {formatCurrency(item.price)}
+                          {formatCurrency(selectedOrderForModal.total_amount)}
                         </td>
                         <td className="py-3 px-4 text-center font-extrabold text-amber-700">
-                          ×{item.quantity}
+                          ×1
                         </td>
                         <td className="py-3 px-4 text-right font-black text-slate-900">
-                          {formatCurrency(item.price * item.quantity)}
+                          {formatCurrency(selectedOrderForModal.total_amount)}
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -468,6 +636,94 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Payment Update Modal */}
+      {paymentModalOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-slate-900">Update Order Payment</h3>
+                  <p className="text-xs text-slate-500 font-medium">Order #{paymentModalOrder.id.split('-')[0].toUpperCase()}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPaymentModalOrder(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-600">
+                <span>Customer:</span>
+                <strong className="text-slate-900">{paymentModalOrder.customer_name}</strong>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Order Total Amount:</span>
+                <strong className="text-slate-900 font-extrabold text-sm">{formatCurrency(paymentModalOrder.total_amount)}</strong>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                Enter Amount Received / Paid (₹):
+              </label>
+              <input
+                type="number"
+                min="0"
+                max={paymentModalOrder.total_amount}
+                value={newPaidAmount}
+                onChange={(e) => setNewPaidAmount(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl font-mono font-bold text-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs"
+                placeholder="Enter paid amount"
+              />
+
+              <div className="flex items-center justify-between text-xs pt-1">
+                <button
+                  type="button"
+                  onClick={() => setNewPaidAmount(paymentModalOrder.total_amount.toString())}
+                  className="text-amber-700 font-extrabold hover:underline cursor-pointer"
+                >
+                  ⚡ Mark Fully Paid ({formatCurrency(paymentModalOrder.total_amount)})
+                </button>
+                {(() => {
+                  const paidVal = parseFloat(newPaidAmount) || 0;
+                  const remVal = Math.max(0, paymentModalOrder.total_amount - paidVal);
+                  return (
+                    <span className={`font-bold ${remVal > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      Pending: {formatCurrency(remVal)}
+                    </span>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPaymentModalOrder(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-extrabold text-xs hover:bg-slate-100 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePaymentUpdate}
+                disabled={updatingPayment}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-md cursor-pointer hover:scale-105 transition-all disabled:opacity-50"
+              >
+                {updatingPayment ? 'Saving Update...' : 'Save Payment'}
+              </button>
+            </div>
           </div>
         </div>
       )}

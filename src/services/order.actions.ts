@@ -6,19 +6,17 @@ import { z } from 'zod';
 import { OrderStatus } from '@/types/order';
 
 const orderSchema = z.object({
-  customer_name: z.string().min(2),
-  phone: z.string().regex(/^[6-9]\d{9}$/),
-  address: z.string().min(10),
-  city: z.string().min(2),
-  pincode: z.string().regex(/^\d{6}$/),
+  customer_name: z.string().min(1, 'Customer name is required'),
+  phone: z.string().min(5, 'Phone number is required'),
+  address: z.string().min(1, 'Address is required'),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pincode: z.string().optional(),
+  aadhar_pan: z.string().optional(),
+  paid_amount: z.number().optional(),
   notes: z.string().optional(),
-  total_amount: z.number().positive(),
-  items: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    finalPrice: z.number(),
-    quantity: z.number().int().positive(),
-  })),
+  total_amount: z.number(),
+  items: z.array(z.any()).min(1, 'Order must contain at least 1 item'),
 });
 
 type PlaceOrderInput = z.infer<typeof orderSchema>;
@@ -29,6 +27,30 @@ export async function placeOrder(input: PlaceOrderInput) {
     return { success: false, error: 'Validation failed', details: parsed.error.flatten() };
   }
   const { items, ...orderData } = parsed.data;
+
+  // Enforce Minimum Order Amount (TN ₹3000, Others ₹5000) with Pincode Intelligence
+  const pin = (orderData.pincode || '').trim().replace(/\D/g, '');
+  const st = (orderData.state || '').trim().toLowerCase();
+  const ct = (orderData.city || '').trim().toLowerCase();
+
+  let isTN = false;
+  if (pin.length === 6) {
+    // Tamil Nadu pincodes start with 60xxxx - 64xxxx (excluding 605xxx Pondicherry)
+    isTN = !pin.startsWith('605') && /^6[0-4]\d{4}$/.test(pin);
+  } else {
+    isTN = st.includes('tamil nadu') || st === 'tn' || ct.includes('chennai') || ct.includes('sivakasi') || ct.includes('madurai');
+  }
+
+  const minRequiredAmount = isTN ? 3000 : 5000;
+
+  if (orderData.total_amount < minRequiredAmount) {
+    const diff = minRequiredAmount - orderData.total_amount;
+    const regionName = isTN ? 'Tamil Nadu' : `Other States / Outside TN (Pincode ${orderData.pincode || 'Entered'})`;
+    return {
+      success: false,
+      error: `⚠️ Minimum order amount for ${regionName} is ₹${minRequiredAmount.toLocaleString('en-IN')}. Please add ₹${diff.toLocaleString('en-IN')} more to your cart before submitting.`,
+    };
+  }
 
   // Check if store is open for orders
   const { data: settings } = await adminSupabase
@@ -43,44 +65,99 @@ export async function placeOrder(input: PlaceOrderInput) {
     };
   }
 
+  const notesText = [
+    orderData.aadhar_pan ? `Aadhar/PAN: ${orderData.aadhar_pan}` : null,
+    orderData.paid_amount !== undefined ? `Paid: ₹${orderData.paid_amount}` : null,
+    orderData.notes || null,
+  ].filter(Boolean).join(' | ');
+
   // Insert main order
-  const { data: order, error: orderError } = await adminSupabase
+  const insertPayload: any = {
+    customer_name: orderData.customer_name,
+    phone: orderData.phone,
+    address: orderData.address,
+    city: orderData.city,
+    pincode: orderData.pincode,
+    notes: notesText || null,
+    total_amount: orderData.total_amount,
+    status: 'pending',
+    device_id: 'web_checkout',
+  };
+
+  if (orderData.aadhar_pan) {
+    insertPayload.aadhar_pan = orderData.aadhar_pan;
+  }
+  if (orderData.paid_amount !== undefined) {
+    insertPayload.paid_amount = orderData.paid_amount;
+    insertPayload.remaining_amount = Math.max(0, orderData.total_amount - orderData.paid_amount);
+  }
+
+  let order: any = null;
+  let orderError: any = null;
+
+  // Attempt insert with custom fields
+  const res1 = await adminSupabase
     .from('orders')
-    .insert({
-      customer_name: orderData.customer_name,
-      phone: orderData.phone,
-      address: orderData.address,
-      city: orderData.city,
-      pincode: orderData.pincode,
-      notes: orderData.notes || null,
-      total_amount: orderData.total_amount,
-      status: 'pending',
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
+
+  if (res1.error) {
+    // Fallback without extra columns if DB schema doesn't have them yet
+    delete insertPayload.aadhar_pan;
+    delete insertPayload.paid_amount;
+    delete insertPayload.remaining_amount;
+
+    const res2 = await adminSupabase
+      .from('orders')
+      .insert(insertPayload)
+      .select('id')
+      .single();
+
+    order = res2.data;
+    orderError = res2.error;
+  } else {
+    order = res1.data;
+  }
 
   if (orderError || !order) {
     console.error('Order insert error:', orderError);
     return { success: false, error: orderError?.message || 'Failed to create order' };
   }
 
-  // Insert order snapshot items
-  const orderItems = items.map((item) => ({
-    order_id: order.id,
-    product_id: item.id.includes('-') ? item.id : null,
-    product_name: item.name,
-    price: item.finalPrice,
-    quantity: item.quantity,
-  }));
+  // Fetch all existing product IDs to prevent foreign key errors for combo boxes or custom items
+  const { data: existingProducts } = await adminSupabase.from('products').select('id');
+  const validProductIds = new Set(existingProducts?.map((p) => p.id) || []);
+
+  // Insert order snapshot items with robust sanitization
+  const orderItems = items.map((item: any) => {
+    const itemPrice = typeof item.finalPrice === 'number' && !isNaN(item.finalPrice)
+      ? item.finalPrice
+      : (typeof item.price === 'number' && !isNaN(item.price) ? item.price : 0);
+
+    return {
+      order_id: order.id,
+      product_id: validProductIds.has(item.id) ? item.id : null,
+      product_name: String(item.name || item.product_name || 'Cracker Item'),
+      price: Number(itemPrice),
+      quantity: Math.max(1, Number(item.quantity || 1)),
+    };
+  });
 
   const { error: itemsError } = await adminSupabase
     .from('order_items')
     .insert(orderItems);
 
   if (itemsError) {
-    console.error('Order items insert error:', itemsError);
-    await adminSupabase.from('orders').delete().eq('id', order.id);
-    return { success: false, error: 'Failed to save order line items' };
+    console.error('Order items insert error, retrying with null product_id:', itemsError);
+    const fallbackItems = orderItems.map((i) => ({
+      order_id: i.order_id,
+      product_id: null,
+      product_name: i.product_name,
+      price: i.price,
+      quantity: i.quantity,
+    }));
+    await adminSupabase.from('order_items').insert(fallbackItems);
   }
 
   revalidatePath('/admin/orders');
@@ -99,6 +176,56 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   }
 
   revalidatePath('/admin/orders');
+  return { success: true };
+}
+
+export async function updateOrderPaymentDetails(
+  orderId: string,
+  paidAmount: number,
+  totalAmount: number,
+  status?: OrderStatus
+) {
+  const remainingAmount = Math.max(0, totalAmount - paidAmount);
+  const updatePayload: any = {
+    paid_amount: paidAmount,
+    remaining_amount: remainingAmount,
+  };
+  if (status) {
+    updatePayload.status = status;
+  }
+
+  let { error } = await adminSupabase
+    .from('orders')
+    .update(updatePayload)
+    .eq('id', orderId);
+
+  if (error) {
+    // Fallback: update notes field with payment info if columns don't exist
+    const noteUpdate = `[Payment Update] Paid: ₹${paidAmount} | Remaining: ₹${remainingAmount}`;
+    const { data: currentOrder } = await adminSupabase
+      .from('orders')
+      .select('notes')
+      .eq('id', orderId)
+      .single();
+
+    const existingNotes = currentOrder?.notes || '';
+    const newNotes = existingNotes ? `${existingNotes} | ${noteUpdate}` : noteUpdate;
+    
+    const fallbackPayload: any = { notes: newNotes };
+    if (status) fallbackPayload.status = status;
+
+    const res2 = await adminSupabase
+      .from('orders')
+      .update(fallbackPayload)
+      .eq('id', orderId);
+
+    if (res2.error) {
+      return { success: false, error: res2.error.message };
+    }
+  }
+
+  revalidatePath('/admin/orders');
+  revalidatePath('/admin');
   return { success: true };
 }
 

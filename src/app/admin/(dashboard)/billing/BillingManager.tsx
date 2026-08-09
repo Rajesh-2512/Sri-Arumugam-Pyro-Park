@@ -39,6 +39,8 @@ import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+import { generateInvoicePDF } from '@/lib/invoicePdfGenerator';
+
 interface BillingManagerProps {
   products: Product[];
   giftBoxes: GiftBox[];
@@ -79,6 +81,8 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
   const [city, setCity] = useState('Sivakasi');
   const [pincode, setPincode] = useState('626123');
   const [gstin, setGstin] = useState('');
+  const [aadharPan, setAadharPan] = useState('');
+  const [paidAmountInput, setPaidAmountInput] = useState<string>('');
 
   // --- TAX & PAYMENT STATE ---
   const [gstMode, setGstMode] = useState<'none' | 'exclusive' | 'inclusive'>('none');
@@ -298,207 +302,29 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
     });
   };
 
-  // PDF Generation Function — 100% Identical to OrderInvoicePDF Brand Design
+  // PDF Generation Function
   const generatePdfInvoice = async (orderId: string, createdAtDate?: string) => {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
+    const paidVal = paidAmountInput ? parseFloat(paidAmountInput) : grandTotal;
+    const remVal = Math.max(0, grandTotal - paidVal);
+
+    await generateInvoicePDF({
+      id: orderId,
+      customer_name: customerName,
+      phone,
+      address: address || 'In-Store Counter Buyer',
+      city: city || 'Sivakasi',
+      pincode: pincode || '626123',
+      aadhar_pan: aadharPan || null,
+      paid_amount: paidVal,
+      remaining_amount: remVal,
+      total_amount: grandTotal,
+      created_at: createdAtDate || new Date().toISOString(),
+      order_items: lineItems.map((item) => ({
+        product_name: item.name,
+        price: item.finalPrice,
+        quantity: item.quantity,
+      })),
     });
-
-    const primaryDark = [27, 35, 66]; // #1b2342
-    const amberColor = [217, 119, 6]; // Amber-600
-    const brandOrange = [234, 88, 12]; // #ea580c
-    const slateGray = [100, 116, 139]; // Slate-500
-    const lightBg = [248, 250, 252];
-
-    const shortId = orderId.slice(-8).toUpperCase();
-    const formattedDate = createdAtDate 
-      ? new Date(createdAtDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-      : new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-    // Load logo image for PDF
-    const logoImg = await loadLogoImage();
-    let headerY = 20;
-
-    if (logoImg) {
-      doc.addImage(logoImg, 'PNG', 14, 10, 48, 16);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-      doc.text('DIRECT SIVAKASI FACTORY OUTLET | OFFICIAL ORDER RECEIPT', 14, 30);
-      headerY = 32;
-    } else {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-      doc.text('SRI ARUMUGAM PYRO PARK', 14, 20);
-
-      doc.setFontSize(9);
-      doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-      doc.text('DIRECT SIVAKASI FACTORY OUTLET | OFFICIAL ORDER RECEIPT', 14, 26);
-      headerY = 28;
-    }
-
-    // Invoice Meta (top right)
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-    doc.text(`INVOICE #: #${shortId}`, 196, 20, { align: 'right' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(slateGray[0], slateGray[1], slateGray[2]);
-    doc.text(`Date: ${formattedDate}`, 196, 26, { align: 'right' });
-
-    // Horizontal Divider
-    doc.setLineWidth(0.5);
-    doc.setDrawColor(226, 232, 240);
-    doc.line(14, headerY + 2, 196, headerY + 2);
-
-    const customerBoxY = headerY + 6;
-
-    // Customer Details Section Box
-    doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-    doc.roundedRect(14, customerBoxY, 182, 28, 3, 3, 'F');
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(14, customerBoxY, 182, 28, 3, 3, 'D');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-    doc.text('BILLED TO / CUSTOMER DETAILS:', 18, customerBoxY + 7);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-    doc.text(customerName || 'Walk-in Counter Buyer', 18, customerBoxY + 13);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(slateGray[0], slateGray[1], slateGray[2]);
-    doc.text(`Mobile: ${phone ? '+91 ' + phone : 'N/A'}`, 18, customerBoxY + 18);
-    doc.text(`Address: ${address || 'In-Store Counter'}, ${city} - ${pincode}`, 18, customerBoxY + 23);
-
-    if (gstin) {
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-      doc.text(`BUYER GSTIN: ${gstin.toUpperCase()}`, 120, customerBoxY + 13);
-    }
-
-    // Programmatic jsPDF AutoTable generation
-    const tableHead = [['#', 'Item Name', 'Qty', 'Unit Price (Rs.)', 'Total Amount (Rs.)']];
-    const tableData = lineItems.map((item, index) => [
-      index + 1,
-      item.name,
-      item.quantity,
-      item.finalPrice.toFixed(2),
-      (item.finalPrice * item.quantity).toFixed(2),
-    ]);
-
-    autoTable(doc, {
-      startY: customerBoxY + 33,
-      head: tableHead,
-      body: tableData,
-      theme: 'striped',
-      headStyles: {
-        fillColor: [234, 88, 12], // Vibrant Brand Orange
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize: 9,
-        halign: 'left',
-      },
-      columnStyles: {
-        0: { cellWidth: 12, halign: 'center' },
-        1: { cellWidth: 'auto' },
-        2: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
-        3: { cellWidth: 35, halign: 'right' },
-        4: { cellWidth: 40, halign: 'right', fontStyle: 'bold' },
-      },
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252],
-      },
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY + 6;
-
-    // Financial Breakdown Container (Subtotal, Discount, GST)
-    let breakdownY = finalY;
-
-    if (overallDiscountPercent > 0 || gstMode !== 'none') {
-      // Right-aligned summary box for Financial Breakdown
-      const lineCount = 1 + (overallDiscountPercent > 0 ? 1 : 0) + (gstMode !== 'none' ? 2 : 0);
-      const summaryBoxHeight = 6 + lineCount * 6;
-
-      doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-      doc.roundedRect(110, breakdownY, 86, summaryBoxHeight, 2, 2, 'F');
-      doc.setDrawColor(226, 232, 240);
-      doc.roundedRect(110, breakdownY, 86, summaryBoxHeight, 2, 2, 'D');
-
-      let innerY = breakdownY + 6;
-
-      doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-      doc.text('Subtotal:', 115, innerY);
-      doc.text(`Rs. ${rawSubtotal.toFixed(2)}`, 190, innerY, { align: 'right' });
-      innerY += 5.5;
-
-      if (overallDiscountPercent > 0) {
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
-        doc.text(`Discount (${overallDiscountPercent}%):`, 115, innerY);
-        doc.text(`- Rs. ${discountAmount.toFixed(2)}`, 190, innerY, { align: 'right' });
-        innerY += 5.5;
-      }
-
-      if (gstMode !== 'none') {
-        const halfGst = (gstAmount / 2).toFixed(2);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(slateGray[0], slateGray[1], slateGray[2]);
-        doc.text(`CGST (${(gstRate / 2).toFixed(1)}%):`, 115, innerY);
-        doc.text(`Rs. ${halfGst}`, 190, innerY, { align: 'right' });
-        innerY += 5.5;
-
-        doc.text(`SGST (${(gstRate / 2).toFixed(1)}%):`, 115, innerY);
-        doc.text(`Rs. ${halfGst}`, 190, innerY, { align: 'right' });
-        innerY += 5.5;
-      }
-
-      breakdownY += summaryBoxHeight + 6;
-    }
-
-    // Summary Card / Total Box — Elegant Light Theme
-    doc.setFillColor(255, 247, 237); // Soft Orange Light Fill
-    doc.roundedRect(14, breakdownY, 182, 18, 3, 3, 'F');
-    doc.setLineWidth(0.4);
-    doc.setDrawColor(234, 88, 12); // Brand Orange Border
-    doc.roundedRect(14, breakdownY, 182, 18, 3, 3, 'D');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    doc.setTextColor(15, 23, 42); // Slate 900
-    doc.text(`Payment Status: Paid (${paymentMode.toUpperCase()})`, 20, breakdownY + 11);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(234, 88, 12); // Brand Orange
-    doc.text(`Grand Total: Rs. ${grandTotal.toFixed(2)}`, 190, breakdownY + 11.5, { align: 'right' });
-
-    // Footer
-    const footerY = breakdownY + 26;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(slateGray[0], slateGray[1], slateGray[2]);
-    doc.text('Thank you for shopping with Sri Arumugam Pyro Park!', 105, footerY, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    doc.text('Direct Sivakasi Factory Dispatch. Official Computer Generated Invoice.', 105, footerY + 4, { align: 'center' });
-
-    doc.save(`Order_Invoice_${shortId}.pdf`);
   };
 
   // Submit Order Action
@@ -515,16 +341,20 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
     setSubmitting(true);
     setMessage(null);
 
+    const paidVal = paidAmountInput ? parseFloat(paidAmountInput) : grandTotal;
+
     const res = await createAdminBillingOrder({
       customer_name: customerName,
       phone,
       address,
       city,
       pincode,
+      aadhar_pan: aadharPan || undefined,
       gstin: gstin || undefined,
       gst_rate: gstMode !== 'none' ? gstRate : 0,
       gst_amount: gstAmount,
       payment_mode: paymentMode,
+      paid_amount: paidVal,
       notes,
       total_amount: grandTotal,
       items: lineItems,
@@ -790,6 +620,17 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
                   </div>
 
                   <div>
+                    <label className="block font-black text-amber-900 uppercase mb-1">Customer Aadhar / PAN No (Optional)</label>
+                    <input
+                      type="text"
+                      value={aadharPan}
+                      onChange={(e) => setAadharPan(e.target.value)}
+                      placeholder="e.g. 564986799886 / ABCDE1234F"
+                      className="w-full bg-amber-50/50 border border-amber-200 rounded-xl px-3.5 py-2.5 text-xs text-amber-900 font-mono font-bold uppercase focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
                     <label className="block font-black text-amber-900 uppercase mb-1">B2B GSTIN (Optional)</label>
                     <input
                       type="text"
@@ -808,6 +649,26 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
                       onChange={(e) => setCity(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-amber-500"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block font-black text-emerald-700 uppercase mb-1">
+                      Paid Amount (For Partial Payment)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={paidAmountInput}
+                      onChange={(e) => setPaidAmountInput(e.target.value)}
+                      placeholder={`Full Payment (₹${grandTotal.toFixed(2)})`}
+                      className="w-full bg-emerald-50/50 border border-emerald-300 rounded-xl px-3.5 py-2.5 text-xs text-emerald-900 font-bold focus:outline-none focus:border-emerald-500"
+                    />
+                    {paidAmountInput && parseFloat(paidAmountInput) < grandTotal && (
+                      <p className="text-[10px] text-rose-600 font-bold mt-1">
+                        ⚠️ Remaining Balance: ₹{(grandTotal - parseFloat(paidAmountInput)).toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

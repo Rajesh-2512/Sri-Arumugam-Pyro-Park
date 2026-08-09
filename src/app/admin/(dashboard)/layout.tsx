@@ -21,7 +21,7 @@ const navItems = [
   { href: '/admin', label: 'Dashboard Overview', icon: LayoutDashboard },
   { href: '/admin/billing', label: 'POS Billing Desk', icon: FileText },
   { href: '/admin/products', label: 'Product Inventory', icon: Package },
-  { href: '/admin/gift-boxes', label: 'Gift Box Combos', icon: Gift },
+  { href: '/admin/gift-boxes', label: 'Combo Boxes', icon: Gift },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },
   { href: '/admin/orders', label: 'Orders & Receipts', icon: ShoppingBag },
   { href: '/admin/feedbacks', label: 'Customer Feedbacks', icon: MessageSquareHeart },

@@ -4,7 +4,8 @@ export type OrderStatus =
   | 'processing'
   | 'dispatched'
   | 'delivered'
-  | 'cancelled';
+  | 'cancelled'
+  | 'refunded';
 
 export interface OrderItem {
   id?: string;
@@ -25,6 +26,9 @@ export interface Order {
   pincode: string;
   status: OrderStatus;
   total_amount: number;
+  aadhar_pan?: string | null;
+  paid_amount?: number | null;
+  remaining_amount?: number | null;
   notes: string | null;
   created_at: string;
   updated_at?: string;

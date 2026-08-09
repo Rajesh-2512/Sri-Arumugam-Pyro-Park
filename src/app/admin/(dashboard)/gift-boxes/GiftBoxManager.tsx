@@ -180,10 +180,10 @@ export default function GiftBoxManager({ initialGiftBoxes }: Props) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
-            <Gift className="w-7 h-7 text-amber-600" /> Gift Box Management
+            <Gift className="w-7 h-7 text-amber-600" /> Combo Box Management
           </h1>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Manage multi-item family crackers gift boxes, image arrays, and included item quantities.
+            Manage multi-item family crackers combo boxes, image arrays, and included item quantities.
           </p>
         </div>
 
@@ -191,7 +191,7 @@ export default function GiftBoxManager({ initialGiftBoxes }: Props) {
           onClick={openCreateModal}
           className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
         >
-          <Plus className="w-4 h-4" /> Add New Gift Box
+          <Plus className="w-4 h-4" /> Add New Combo Box
         </button>
       </div>
 
@@ -206,7 +206,7 @@ export default function GiftBoxManager({ initialGiftBoxes }: Props) {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200">
-                    {box.is_featured ? '⭐ Featured Box' : 'Gift Box'}
+                    {box.is_featured ? '⭐ Featured Combo' : 'Combo Box'}
                   </span>
                   <h3 className="text-lg font-black text-slate-900 mt-1">{box.name}</h3>
                 </div>
@@ -261,209 +261,260 @@ export default function GiftBoxManager({ initialGiftBoxes }: Props) {
       {/* Modal Dialog */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto my-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-6xl w-full p-6 sm:p-8 space-y-6 max-h-[92vh] overflow-y-auto my-auto">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                <Gift className="w-5 h-5 text-amber-600" /> {editingBox ? 'Edit Gift Box' : 'Create New Gift Box'}
-              </h2>
-              <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
+                  <Gift className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    {editingBox ? `Edit Combo Box: ${editingBox.name}` : 'Create New Combo Box Pack'}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Configure combo box pricing, cracker varieties included, and product images
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setIsOpen(false)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5 text-xs">
+            <form onSubmit={handleSubmit} className="space-y-6 text-xs">
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Gift Box Name *</label>
-                  <input
-                    value={name}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    placeholder="Diwali Mega Celebration Box"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
+              {/* Spacious 2-Column Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* LEFT COLUMN (6-Cols): Combo Specifications & Media */}
+                <div className="lg:col-span-6 space-y-4">
+                  
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">Combo Box Name *</label>
+                    <input
+                      value={name}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      placeholder="Diwali Mega Celebration Box"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500"
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">URL Slug *</label>
-                  <input
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
-                    placeholder="diwali-mega-box"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-mono focus:bg-white focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block font-black text-slate-700 uppercase mb-1">MRP Price (₹) *</label>
+                      <input
+                        type="number"
+                        value={price}
+                        onChange={(e) => setPrice(Number(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black focus:bg-white focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  placeholder="Complete family cracker assortment with 45+ varieties..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
-                />
-              </div>
+                    <div>
+                      <label className="block font-black text-slate-700 uppercase mb-1">Discount (%)</label>
+                      <input
+                        type="number"
+                        value={discount}
+                        onChange={(e) => setDiscount(Number(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black text-emerald-600 focus:bg-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">MRP Price (₹) *</label>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold"
-                    required
-                  />
-                </div>
+                    <div>
+                      <label className="block font-black text-slate-700 uppercase mb-1">Stock Qty</label>
+                      <input
+                        type="number"
+                        value={stock}
+                        onChange={(e) => setStock(Number(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black focus:bg-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Box Discount (%)</label>
-                  <input
-                    type="number"
-                    value={discount}
-                    onChange={(e) => setDiscount(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold"
-                  />
-                </div>
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">Description</label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={3}
+                      placeholder="Complete family cracker assortment with 45+ varieties..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Stock Qty</label>
-                  <input
-                    type="number"
-                    value={stock}
-                    onChange={(e) => setStock(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold"
-                  />
-                </div>
-              </div>
+                  {/* Multiple Images List */}
+                  <div className="space-y-3 bg-slate-50 p-4 rounded-3xl border border-slate-200/80">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <label className="block font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-amber-600" /> Combo Box Images ({images.length})
+                      </label>
+                    </div>
 
-              {/* Multiple Images List */}
-              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
-                <label className="block font-extrabold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-amber-600" /> Gift Box Images Array
-                </label>
+                    {images.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {images.map((img, idx) => (
+                          <div key={idx} className="relative w-20 h-20 rounded-2xl bg-white border-2 border-amber-300 overflow-hidden shrink-0 group shadow-2xs">
+                            <img src={img} alt="preview" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(idx)}
+                              className="absolute inset-0 bg-red-600/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              title="Delete Image"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            {idx === 0 && (
+                              <span className="absolute bottom-0 inset-x-0 bg-amber-500 text-white font-black text-[9px] text-center py-0.5 uppercase">
+                                MAIN
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                <div className="flex flex-wrap gap-3">
-                  {images.map((img, idx) => (
-                    <div key={idx} className="relative w-20 h-20 rounded-xl bg-white border border-slate-200 overflow-hidden shrink-0 group">
-                      <img src={img} alt="preview" className="w-full h-full object-cover" />
+                    <div className="flex items-center gap-2 pt-1">
+                      <label className="px-4 py-2 bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-extrabold rounded-xl cursor-pointer shrink-0 transition-colors shadow-2xs">
+                        {uploadingImg ? 'Uploading...' : 'Upload Image'}
+                        <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      </label>
+                      <input
+                        type="url"
+                        value={customImageUrl}
+                        onChange={(e) => setCustomImageUrl(e.target.value)}
+                        placeholder="Or paste image URL"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-amber-500"
+                      />
                       <button
                         type="button"
-                        onClick={() => removeImage(idx)}
-                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow-md hover:scale-110 cursor-pointer"
+                        onClick={addCustomImage}
+                        className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-xl cursor-pointer shadow-2xs transition-colors shrink-0"
                       >
-                        <X className="w-3 h-3" />
+                        Add URL
                       </button>
                     </div>
-                  ))}
+                  </div>
+
+                  <div className="flex items-center gap-6 pt-1 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+                    <label className="flex items-center gap-2 font-bold cursor-pointer text-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={isActive}
+                        onChange={(e) => setIsActive(e.target.checked)}
+                        className="w-4 h-4 text-amber-500 rounded cursor-pointer"
+                      />
+                      <span>Active on Storefront</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 font-bold cursor-pointer text-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={isFeatured}
+                        onChange={(e) => setIsFeatured(e.target.checked)}
+                        className="w-4 h-4 text-amber-500 rounded cursor-pointer"
+                      />
+                      <span>Featured Badge</span>
+                    </label>
+                  </div>
+
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
-                  <label className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-extrabold rounded-xl cursor-pointer shrink-0">
-                    {uploadingImg ? 'Uploading...' : 'Upload Image'}
-                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                  </label>
-                  <input
-                    type="url"
-                    value={customImageUrl}
-                    onChange={(e) => setCustomImageUrl(e.target.value)}
-                    placeholder="Or paste image URL"
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={addCustomImage}
-                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-extrabold rounded-xl cursor-pointer"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
+                {/* RIGHT COLUMN (6-Cols): Included Items Builder Desk */}
+                <div className="lg:col-span-6 space-y-4 bg-slate-50 p-5 rounded-3xl border border-slate-200/80 h-full flex flex-col">
+                  
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3 shrink-0">
+                    <label className="block font-black text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                      <Package className="w-4.5 h-4.5 text-amber-600" /> Included Cracker Varieties Breakdown ({contents.length})
+                    </label>
+                    <span className="text-[11px] text-amber-700 font-extrabold bg-amber-100 px-2.5 py-0.5 rounded-full">
+                      {contents.length} Varieties Inside
+                    </span>
+                  </div>
 
-              {/* Included Contents Breakdown */}
-              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
-                <label className="block font-extrabold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-amber-600" /> Included Items Breakdown ({contents.length})
-                </label>
-
-                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                  {contents.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 text-xs">
-                      <span className="font-bold text-slate-800">{item.name}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded text-[11px]">{item.quantity}</span>
-                        <button type="button" onClick={() => removeContentItem(idx)} className="text-red-500 hover:text-red-700 cursor-pointer">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                  {/* Add New Variety Bar */}
+                  <div className="p-3 bg-white rounded-2xl border border-slate-200 space-y-2 shadow-2xs shrink-0">
+                    <span className="text-[11px] font-extrabold text-slate-600 uppercase block">Add Cracker Variety</span>
+                    <div className="flex flex-col sm:flex-row items-center gap-2">
+                      <input
+                        placeholder="Variety Name (e.g. 12 Shot Sky Shots)"
+                        value={newItemName}
+                        onChange={(e) => setNewItemName(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500"
+                      />
+                      <input
+                        placeholder="Qty (e.g. 1 Box / 10 Pcs)"
+                        value={newItemQty}
+                        onChange={(e) => setNewItemQty(e.target.value)}
+                        className="w-full sm:w-36 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={addContentItem}
+                        className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shrink-0 cursor-pointer shadow-2xs transition-all"
+                      >
+                        + Add
+                      </button>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Included Items Scrollable List */}
+                  <div className="space-y-2 max-h-[340px] min-h-[220px] overflow-y-auto pr-1 flex-1">
+                    {contents.length === 0 ? (
+                      <div className="h-full flex items-center justify-center p-8 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-white text-slate-400 font-bold text-xs">
+                        No cracker varieties added yet. Use the bar above to add items to this combo box.
+                      </div>
+                    ) : (
+                      contents.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-slate-200/80 text-xs shadow-2xs hover:border-amber-300 transition-colors">
+                          <span className="font-bold text-slate-900 text-xs">{item.name}</span>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="bg-amber-100 text-amber-900 font-extrabold px-3 py-1 rounded-xl text-xs">{item.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeContentItem(idx)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    placeholder="Item name (e.g. 1000 Sound Cracker)"
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                  />
-                  <input
-                    placeholder="Qty (e.g. 1 Box / 10 Pcs)"
-                    value={newItemQty}
-                    onChange={(e) => setNewItemQty(e.target.value)}
-                    className="w-36 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={addContentItem}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-extrabold rounded-xl shrink-0 cursor-pointer"
-                  >
-                    Add Item
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-6 pt-1">
-                <label className="flex items-center gap-2 font-bold cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isActive}
-                    onChange={(e) => setIsActive(e.target.checked)}
-                    className="w-4 h-4 text-amber-500 rounded"
-                  />
-                  <span>Active on Storefront</span>
-                </label>
-
-                <label className="flex items-center gap-2 font-bold cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isFeatured}
-                    onChange={(e) => setIsFeatured(e.target.checked)}
-                    className="w-4 h-4 text-amber-500 rounded"
-                  />
-                  <span>Featured Badge</span>
-                </label>
               </div>
 
               {message && (
-                <div className={`p-4 rounded-2xl font-bold text-xs flex items-center gap-2 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                <div className={`p-4 rounded-2xl font-bold text-xs flex items-center gap-2 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                   {message.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                   {message.text}
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-sm uppercase tracking-wider shadow-md shadow-orange-500/20"
-              >
-                {loading ? 'Saving Gift Box...' : editingBox ? 'Update Gift Box' : 'Create Gift Box'}
-              </button>
+              {/* Action Buttons */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="px-6 py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50 hover:scale-[1.02] active:scale-95"
+                >
+                  {loading ? 'Saving Gift Box...' : editingBox ? 'Save Combo Box Changes' : 'Create Combo Box Now'}
+                </button>
+              </div>
 
             </form>
 

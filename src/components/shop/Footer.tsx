@@ -78,7 +78,7 @@ export default function Footer({ shopName = 'Sri Arumugam Pyro Park', contactNum
 
             {/* Description Text */}
             <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-md font-sans">
-              We are the leading supplier of Sparklers, Ground Chakkars, Flower Pots, Fountains, Fancy Crackers, Sound Crackers, Novelty Fireworks, Rockets, Bombs, Twinkling Stars, Elite Crackers, Fancy Deluxe Fountains, Loose Crackers, Electric Crackers, Super Blast Wala Crackers, Fancy Novelties, Multi Colour Shots, Aerial Colour Novelties, Comets and Fireworks Gift Box.
+              We are the leading supplier of Sparklers, Ground Chakkars, Flower Pots, Fountains, Fancy Crackers, Sound Crackers, Novelty Fireworks, Rockets, Bombs, Twinkling Stars, Elite Crackers, Fancy Deluxe Fountains, Loose Crackers, Electric Crackers, Super Blast Wala Crackers, Fancy Novelties, Multi Colour Shots, Aerial Colour Novelties, Comets and Fireworks Combo Box.
             </p>
 
             {/* Branded Social Media Buttons */}

@@ -27,6 +27,7 @@ import {
   ChevronUp,
   MapPin,
   User,
+  Download,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -116,6 +117,7 @@ export default function TrackOrderClient() {
 
   const getStepProgress = (statusRaw: string) => {
     const s = (statusRaw || '').toString().trim().toLowerCase();
+    if (s.includes('cancel') || s.includes('refund')) return 0;
     if (s.includes('deliver') || s.includes('complete')) return 4;
     if (s.includes('dispatch') || s.includes('ship') || s.includes('transit') || s.includes('out')) return 3;
     if (s.includes('confirm') || s.includes('process') || s.includes('packed') || s.includes('ready')) return 2;
@@ -205,6 +207,7 @@ export default function TrackOrderClient() {
                     </div>
 
                     <span className={`text-xs font-black uppercase px-4 py-1.5 rounded-full border shadow-2xs ${
+                      stepLevel === 0 ? 'bg-red-50 text-red-700 border-red-200' :
                       stepLevel === 4 ? 'bg-purple-50 text-purple-700 border-purple-200' :
                       stepLevel === 3 ? 'bg-amber-50 text-amber-800 border-amber-300' :
                       stepLevel === 2 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
@@ -214,79 +217,100 @@ export default function TrackOrderClient() {
                     </span>
                   </div>
 
-                  {/* Clean Flexbox Stepper UI */}
-                  <div className="bg-slate-50 p-5 sm:p-6 rounded-2xl border border-slate-200/80 space-y-3">
-                    <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-500 text-center sm:text-left">
-                      Live Delivery Progress
-                    </h4>
-                    
-                    <div className="flex items-center justify-between w-full max-w-lg mx-auto py-2">
-                      
-                      {/* Step 1 */}
-                      <div className="flex flex-col items-center text-center space-y-1.5 shrink-0">
-                        <div className={`w-10 h-10 rounded-full font-black flex items-center justify-center text-xs transition-all ${
-                          stepLevel >= 1 ? 'bg-emerald-600 text-white shadow-md ring-4 ring-emerald-100' : 'bg-slate-200 text-slate-500'
-                        }`}>
-                          ✓
+                  {/* Clean Flexbox Stepper UI or Cancelled Banner */}
+                  {stepLevel === 0 ? (
+                    <div className="bg-red-50/80 border-2 border-red-200 p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left shadow-2xs">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-red-600 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-md">
+                          ✕
                         </div>
-                        <span className={`text-[11px] font-black ${stepLevel >= 1 ? 'text-slate-900' : 'text-slate-400'}`}>
-                          1. Placed
-                        </span>
-                      </div>
-
-                      {/* Line 1-2 */}
-                      <div className={`flex-1 h-1.5 mx-2 sm:mx-3 rounded-full transition-all ${
-                        stepLevel >= 2 ? 'bg-emerald-500' : 'bg-slate-200'
-                      }`} />
-
-                      {/* Step 2 */}
-                      <div className="flex flex-col items-center text-center space-y-1.5 shrink-0">
-                        <div className={`w-10 h-10 rounded-full font-black flex items-center justify-center text-xs transition-all ${
-                          stepLevel >= 2 ? 'bg-emerald-600 text-white shadow-md ring-4 ring-emerald-100' : 'bg-slate-200 text-slate-500'
-                        }`}>
-                          {stepLevel >= 2 ? '✓' : '2'}
+                        <div>
+                          <h4 className="font-extrabold text-sm text-red-950 uppercase">
+                            This Order Has Been {statusRaw.includes('REFUND') ? 'Refunded' : 'Cancelled'}
+                          </h4>
+                          <p className="text-xs text-red-700 font-medium">
+                            Order processing & delivery has been stopped for this order. If you have any questions, please contact support.
+                          </p>
                         </div>
-                        <span className={`text-[11px] font-black ${stepLevel >= 2 ? 'text-slate-900' : 'text-slate-400'}`}>
-                          2. Confirmed
-                        </span>
                       </div>
-
-                      {/* Line 2-3 */}
-                      <div className={`flex-1 h-1.5 mx-2 sm:mx-3 rounded-full transition-all ${
-                        stepLevel >= 3 ? 'bg-amber-500' : 'bg-slate-200'
-                      }`} />
-
-                      {/* Step 3 */}
-                      <div className="flex flex-col items-center text-center space-y-1.5 shrink-0">
-                        <div className={`w-10 h-10 rounded-full font-black flex items-center justify-center text-xs transition-all ${
-                          stepLevel >= 3 ? 'bg-amber-500 text-white shadow-md ring-4 ring-amber-100' : 'bg-slate-200 text-slate-500'
-                        }`}>
-                          {stepLevel >= 3 ? '✓' : '3'}
-                        </div>
-                        <span className={`text-[11px] font-black ${stepLevel >= 3 ? 'text-amber-700' : 'text-slate-400'}`}>
-                          3. Dispatched
-                        </span>
-                      </div>
-
-                      {/* Line 3-4 */}
-                      <div className={`flex-1 h-1.5 mx-2 sm:mx-3 rounded-full transition-all ${
-                        stepLevel >= 4 ? 'bg-purple-600' : 'bg-slate-200'
-                      }`} />
-
-                      {/* Step 4 */}
-                      <div className="flex flex-col items-center text-center space-y-1.5 shrink-0">
-                        <div className={`w-10 h-10 rounded-full font-black flex items-center justify-center text-xs transition-all ${
-                          stepLevel >= 4 ? 'bg-purple-600 text-white shadow-md ring-4 ring-purple-100' : 'bg-slate-200 text-slate-500'
-                        }`}>
-                          {stepLevel >= 4 ? '✓' : '4'}
-                        </div>
-                        <span className={`text-[11px] font-black ${stepLevel >= 4 ? 'text-purple-700' : 'text-slate-400'}`}>
-                          4. Delivered
-                        </span>
-                      </div>
-
+                      <span className="bg-red-600 text-white font-black text-xs px-4 py-2 rounded-xl uppercase tracking-wider shadow-2xs shrink-0">
+                        {statusRaw.includes('REFUND') ? 'ORDER REFUNDED' : 'ORDER CANCELLED'}
+                      </span>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-slate-50 p-5 sm:p-6 rounded-2xl border border-slate-200/80 space-y-3">
+                      <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-500 text-center sm:text-left">
+                        Live Delivery Progress
+                      </h4>
+                      
+                      <div className="flex items-center justify-between w-full max-w-lg mx-auto py-2">
+                        
+                        {/* Step 1 */}
+                        <div className="flex flex-col items-center text-center space-y-1.5 shrink-0">
+                          <div className={`w-10 h-10 rounded-full font-black flex items-center justify-center text-xs transition-all ${
+                            stepLevel >= 1 ? 'bg-emerald-600 text-white shadow-md ring-4 ring-emerald-100' : 'bg-slate-200 text-slate-500'
+                          }`}>
+                            ✓
+                          </div>
+                          <span className={`text-[11px] font-black ${stepLevel >= 1 ? 'text-slate-900' : 'text-slate-400'}`}>
+                            1. Placed
+                          </span>
+                        </div>
+
+                        {/* Line 1-2 */}
+                        <div className={`flex-1 h-1.5 mx-2 sm:mx-3 rounded-full transition-all ${
+                          stepLevel >= 2 ? 'bg-emerald-500' : 'bg-slate-200'
+                        }`} />
+
+                        {/* Step 2 */}
+                        <div className="flex flex-col items-center text-center space-y-1.5 shrink-0">
+                          <div className={`w-10 h-10 rounded-full font-black flex items-center justify-center text-xs transition-all ${
+                            stepLevel >= 2 ? 'bg-emerald-600 text-white shadow-md ring-4 ring-emerald-100' : 'bg-slate-200 text-slate-500'
+                          }`}>
+                            {stepLevel >= 2 ? '✓' : '2'}
+                          </div>
+                          <span className={`text-[11px] font-black ${stepLevel >= 2 ? 'text-slate-900' : 'text-slate-400'}`}>
+                            2. Confirmed
+                          </span>
+                        </div>
+
+                        {/* Line 2-3 */}
+                        <div className={`flex-1 h-1.5 mx-2 sm:mx-3 rounded-full transition-all ${
+                          stepLevel >= 3 ? 'bg-amber-500' : 'bg-slate-200'
+                        }`} />
+
+                        {/* Step 3 */}
+                        <div className="flex flex-col items-center text-center space-y-1.5 shrink-0">
+                          <div className={`w-10 h-10 rounded-full font-black flex items-center justify-center text-xs transition-all ${
+                            stepLevel >= 3 ? 'bg-amber-500 text-white shadow-md ring-4 ring-amber-100' : 'bg-slate-200 text-slate-500'
+                          }`}>
+                            {stepLevel >= 3 ? '✓' : '3'}
+                          </div>
+                          <span className={`text-[11px] font-black ${stepLevel >= 3 ? 'text-amber-700' : 'text-slate-400'}`}>
+                            3. Dispatched
+                          </span>
+                        </div>
+
+                        {/* Line 3-4 */}
+                        <div className={`flex-1 h-1.5 mx-2 sm:mx-3 rounded-full transition-all ${
+                          stepLevel >= 4 ? 'bg-purple-600' : 'bg-slate-200'
+                        }`} />
+
+                        {/* Step 4 */}
+                        <div className="flex flex-col items-center text-center space-y-1.5 shrink-0">
+                          <div className={`w-10 h-10 rounded-full font-black flex items-center justify-center text-xs transition-all ${
+                            stepLevel >= 4 ? 'bg-purple-600 text-white shadow-md ring-4 ring-purple-100' : 'bg-slate-200 text-slate-500'
+                          }`}>
+                            {stepLevel >= 4 ? '✓' : '4'}
+                          </div>
+                          <span className={`text-[11px] font-black ${stepLevel >= 4 ? 'text-purple-700' : 'text-slate-400'}`}>
+                            4. Delivered
+                          </span>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
 
                   {/* Customer Info & Grand Total Card */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-amber-500/5 p-5 rounded-2xl border border-amber-200/70">
@@ -303,11 +327,18 @@ export default function TrackOrderClient() {
                       {ord.notes && <p className="text-[11px] text-amber-800 italic pt-1">Note: "{ord.notes}"</p>}
                     </div>
 
-                    <div className="sm:text-right space-y-0.5 border-t sm:border-t-0 sm:border-l border-amber-200/60 pt-3 sm:pt-0 sm:pl-4 my-auto">
+                    <div className="sm:text-right space-y-2 border-t sm:border-t-0 sm:border-l border-amber-200/60 pt-3 sm:pt-0 sm:pl-4 my-auto">
                       <span className="text-[11px] text-slate-500 font-bold uppercase block">Grand Total</span>
                       <span className="font-black text-2xl text-orange-600 block">
                         {formatCurrency(ord.total_amount)}
                       </span>
+                      <Link
+                        href={`/order-success?id=${ord.id}`}
+                        className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-[11px] px-3.5 py-2 rounded-xl transition-all shadow-md shadow-orange-500/20 hover:scale-105 active:scale-95"
+                      >
+                        <Download className="w-3.5 h-3.5 text-white" />
+                        <span>Download PDF Bill</span>
+                      </Link>
                     </div>
                   </div>
 

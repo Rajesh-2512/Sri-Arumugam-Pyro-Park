@@ -27,7 +27,7 @@ export function LocalBusinessJsonLd({
       "SAPP Sivakasi",
     ],
     description:
-      "Leading Sivakasi crackers factory outlet — buy Diwali crackers, fireworks, sparklers, flower pots, fancy crackers, sound crackers, rockets, bombs, gift boxes online at direct wholesale prices. Transport across India.",
+      "Leading Sivakasi crackers factory outlet — buy Diwali crackers, fireworks, sparklers, flower pots, fancy crackers, sound crackers, rockets, bombs, combo boxes online at direct wholesale prices. Transport across India.",
     url: SITE_URL,
     telephone: `+91${contactNumber}`,
     email: "sriarumugampyropark.svks@gmail.com",
@@ -86,7 +86,7 @@ export function LocalBusinessJsonLd({
       "Sound crackers",
       "Rockets",
       "Bombs",
-      "Fireworks gift boxes",
+      "Fireworks combo boxes",
     ],
   };
 

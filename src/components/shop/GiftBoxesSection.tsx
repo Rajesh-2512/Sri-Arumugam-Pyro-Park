@@ -318,7 +318,7 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
                     {inCartQty > 0 && (
                       <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl font-bold text-xs flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-orange-600 shrink-0" />
-                        <span>This Gift Box is currently in your cart ({inCartQty} Pack{inCartQty > 1 ? 's' : ''})</span>
+                        <span>This Combo Box is currently in your cart ({inCartQty} Pack{inCartQty > 1 ? 's' : ''})</span>
                       </div>
                     )}
 

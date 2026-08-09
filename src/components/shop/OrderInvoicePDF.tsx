@@ -26,11 +26,13 @@ interface OrderDetails {
   order_items: OrderItem[];
 }
 
+import { generateInvoicePDF } from '@/lib/invoicePdfGenerator';
+
 export default function OrderInvoicePDF({ order }: { order: any }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
 
-  const shortId = order.id.split('-')[0].toUpperCase();
+  const shortId = order.id.slice(-6).toUpperCase();
   const formattedDate = new Date(order.created_at).toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',
@@ -39,177 +41,20 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
     minute: '2-digit',
   });
 
-  const loadLogoImage = (): Promise<HTMLImageElement | null> => {
-    return new Promise((resolve) => {
-      const img = new window.Image();
-      img.crossOrigin = 'Anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = '/sriarumugamlogo.png';
-    });
-  };
-
   const generatePDF = async (triggerDownload = true) => {
     setIsGenerating(true);
-
     try {
-      const { jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
-
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      // Colors
-      const primaryDark = [27, 35, 66]; // #1b2342
-      const amberColor = [217, 119, 6]; // Amber-600
-      const slateGray = [100, 116, 139]; // Slate-500
-      const lightBg = [248, 250, 252];
-
-      // Load logo image for PDF
-      const logoImg = await loadLogoImage();
-      let headerY = 20;
-
-      if (logoImg) {
-        doc.addImage(logoImg, 'PNG', 14, 10, 48, 16);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-        doc.text('DIRECT SIVAKASI FACTORY OUTLET | OFFICIAL ORDER RECEIPT', 14, 30);
-        headerY = 32;
-      } else {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(20);
-        doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-        doc.text('SRI ARUMUGAM PYRO PARK', 14, 20);
-
-        doc.setFontSize(9);
-        doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-        doc.text('DIRECT SIVAKASI FACTORY OUTLET | OFFICIAL ORDER RECEIPT', 14, 26);
-        headerY = 28;
-      }
-
-      // Invoice info block (top right)
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-      doc.text(`INVOICE #: #${shortId}`, 196, 20, { align: 'right' });
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(slateGray[0], slateGray[1], slateGray[2]);
-      doc.text(`Date: ${formattedDate}`, 196, 26, { align: 'right' });
-
-      // Horizontal Divider
-      doc.setLineWidth(0.5);
-      doc.setDrawColor(226, 232, 240);
-      doc.line(14, headerY + 2, 196, headerY + 2);
-
-      const customerBoxY = headerY + 6;
-
-      // Customer Details Section Box
-      doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-      doc.roundedRect(14, customerBoxY, 182, 28, 3, 3, 'F');
-      doc.setDrawColor(226, 232, 240);
-      doc.roundedRect(14, customerBoxY, 182, 28, 3, 3, 'D');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-      doc.text('BILLED TO / CUSTOMER DETAILS:', 18, customerBoxY + 7);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-      doc.text(order.customer_name, 18, customerBoxY + 13);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(slateGray[0], slateGray[1], slateGray[2]);
-      doc.text(`Mobile: +91 ${order.phone}`, 18, customerBoxY + 18);
-      doc.text(`Address: ${order.address}, ${order.city} - ${order.pincode}`, 18, customerBoxY + 23);
-
-      // Programmatic jsPDF AutoTable generation
-      const tableHead = [['#', 'Item Name', 'Qty', 'Unit Price (Rs.)', 'Total Amount (Rs.)']];
-      const tableData = (order.order_items || []).map((item: OrderItem, index: number) => [
-        index + 1,
-        item.product_name,
-        item.quantity,
-        item.price.toFixed(2),
-        (item.price * item.quantity).toFixed(2),
-      ]);
-
-      autoTable(doc, {
-        startY: customerBoxY + 33,
-        head: tableHead,
-        body: tableData,
-        theme: 'striped',
-        headStyles: {
-          fillColor: [234, 88, 12], // Vibrant Brand Orange
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 9,
-          halign: 'left',
-        },
-        columnStyles: {
-          0: { cellWidth: 12, halign: 'center' },
-          1: { cellWidth: 'auto' },
-          2: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
-          3: { cellWidth: 35, halign: 'right' },
-          4: { cellWidth: 40, halign: 'right', fontStyle: 'bold' },
-        },
-        styles: {
-          fontSize: 9,
-          cellPadding: 3,
-        },
-        alternateRowStyles: {
-          fillColor: [248, 250, 252],
-        },
-      });
-
-      // Get final Y position after table
-      const finalY = (doc as any).lastAutoTable.finalY + 8;
-
-      // Summary Card / Total Box — Elegant Light Theme
-      doc.setFillColor(255, 247, 237); // Soft Orange Light Fill
-      doc.roundedRect(14, finalY, 182, 18, 3, 3, 'F');
-      doc.setLineWidth(0.4);
-      doc.setDrawColor(234, 88, 12); // Brand Orange Border
-      doc.roundedRect(14, finalY, 182, 18, 3, 3, 'D');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9.5);
-      doc.setTextColor(15, 23, 42); // Slate 900
-      doc.text('Payment Status: Manual Confirmation / COD', 20, finalY + 11);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.setTextColor(234, 88, 12); // Brand Orange
-      doc.text(`Grand Total: Rs. ${order.total_amount.toFixed(2)}`, 190, finalY + 11.5, { align: 'right' });
-
-      // Footer
-      const footerY = finalY + 28;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(slateGray[0], slateGray[1], slateGray[2]);
-      doc.text('Thank you for shopping with Sri Arumugam Pyro Park!', 105, footerY, { align: 'center' });
-      doc.setFont('helvetica', 'normal');
-      doc.text('Direct Sivakasi Factory Dispatch. Official Computer Generated Invoice.', 105, footerY + 4, { align: 'center' });
-
+      await generateInvoicePDF(order, triggerDownload);
       if (triggerDownload) {
-        doc.save(`Order_Invoice_${shortId}.pdf`);
         setDownloaded(true);
       }
     } catch (err) {
-      console.error('jsPDF generation failed:', err);
+      console.error('Invoice PDF generation failed:', err);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Automatically download PDF upon component submission / landing
   useEffect(() => {
     const timer = setTimeout(() => {
       generatePDF(true);

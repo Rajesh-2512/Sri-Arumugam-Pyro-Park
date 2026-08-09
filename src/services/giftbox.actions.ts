@@ -46,9 +46,22 @@ export async function getActiveGiftBoxes(): Promise<{ success: boolean; data: Gi
   return { success: true, data: formatted };
 }
 
+function slugify(text: string): string {
+  return (text || '')
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
+    || `box-${Date.now().toString(36)}`;
+}
+
 export async function createGiftBox(input: {
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
   price: number;
   discount: number;
@@ -58,9 +71,11 @@ export async function createGiftBox(input: {
   is_active?: boolean;
   is_featured?: boolean;
 }) {
+  const autoSlug = slugify(input.slug || input.name || '');
+
   const payload = {
     name: input.name,
-    slug: input.slug,
+    slug: autoSlug,
     description: input.description || null,
     price: input.price,
     discount: input.discount || 0,

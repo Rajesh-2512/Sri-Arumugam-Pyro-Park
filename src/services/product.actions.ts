@@ -4,9 +4,22 @@ import { adminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
+function slugify(text: string): string {
+  return (text || '')
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
+    || `item-${Date.now().toString(36)}`;
+}
+
 const productSchema = z.object({
   name: z.string().min(2),
-  slug: z.string().min(2).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, hyphens'),
+  slug: z.string().optional(),
   description: z.string().optional(),
   price: z.number().min(0),
   category_id: z.string().uuid().nullable().optional(),
@@ -29,9 +42,13 @@ export async function createProduct(formData: FormData) {
     }
   }
 
+  const rawName = (formData.get('name') as string) || '';
+  const rawSlug = (formData.get('slug') as string) || '';
+  const autoSlug = slugify(rawSlug || rawName);
+
   const data = {
-    name: formData.get('name') as string,
-    slug: formData.get('slug') as string,
+    name: rawName,
+    slug: autoSlug,
     description: (formData.get('description') as string) || undefined,
     price: parseFloat(formData.get('price') as string) || 0,
     category_id: rawCategoryId && rawCategoryId !== 'none' ? rawCategoryId : null,
@@ -46,7 +63,7 @@ export async function createProduct(formData: FormData) {
 
   const { error } = await adminSupabase.from('products').insert({
     name: parsed.data.name,
-    slug: parsed.data.slug,
+    slug: autoSlug,
     description: parsed.data.description || null,
     price: parsed.data.price,
     category_id: parsed.data.category_id || null,
@@ -76,9 +93,13 @@ export async function updateProduct(id: string, formData: FormData) {
     }
   }
 
+  const rawName = (formData.get('name') as string) || '';
+  const rawSlug = (formData.get('slug') as string) || '';
+  const autoSlug = slugify(rawSlug || rawName);
+
   const data = {
-    name: formData.get('name') as string,
-    slug: formData.get('slug') as string,
+    name: rawName,
+    slug: autoSlug,
     description: (formData.get('description') as string) || undefined,
     price: parseFloat(formData.get('price') as string) || 0,
     category_id: rawCategoryId && rawCategoryId !== 'none' ? rawCategoryId : null,
@@ -93,7 +114,7 @@ export async function updateProduct(id: string, formData: FormData) {
 
   const { error } = await adminSupabase.from('products').update({
     name: parsed.data.name,
-    slug: parsed.data.slug,
+    slug: autoSlug,
     description: parsed.data.description || null,
     price: parsed.data.price,
     category_id: parsed.data.category_id || null,

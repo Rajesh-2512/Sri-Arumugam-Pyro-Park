@@ -182,6 +182,20 @@ export default function CartClient() {
               </div>
             </div>
 
+            {/* Minimum Order Amount Info Banner */}
+            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2 font-bold">
+              <span>Min Order: ₹3,000 (TN) | ₹5,000 (Outside TN)</span>
+              {totalAmount < 3000 ? (
+                <span className="text-rose-600 font-extrabold">Add {formatCurrency(3000 - totalAmount)} more for TN</span>
+              ) : totalAmount < 5000 ? (
+                <span className="text-amber-800 font-extrabold">TN Eligible (Add {formatCurrency(5000 - totalAmount)} for Others)</span>
+              ) : (
+                <span className="text-emerald-700 font-extrabold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> All States Eligible
+                </span>
+              )}
+            </div>
+
             <Link
               href="/checkout"
               className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-sm uppercase tracking-wider shadow-lg shadow-orange-500/25 flex items-center justify-center gap-3 transition-all hover:scale-[1.01]"

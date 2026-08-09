@@ -3,6 +3,7 @@ export interface SavedCustomerDetails {
   phone: string;
   address: string;
   city: string;
+  state?: string;
   pincode: string;
   notes?: string;
 }

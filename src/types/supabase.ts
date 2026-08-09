@@ -161,8 +161,11 @@ export interface Database {
           address: string;
           city: string;
           pincode: string;
-          status: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled';
+          status: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled' | 'refunded';
           total_amount: number;
+          aadhar_pan?: string | null;
+          paid_amount?: number | null;
+          remaining_amount?: number | null;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -174,8 +177,11 @@ export interface Database {
           address: string;
           city?: string;
           pincode?: string;
-          status?: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled';
+          status?: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled' | 'refunded';
           total_amount: number;
+          aadhar_pan?: string | null;
+          paid_amount?: number | null;
+          remaining_amount?: number | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -187,8 +193,11 @@ export interface Database {
           address?: string;
           city?: string;
           pincode?: string;
-          status?: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled';
+          status?: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled' | 'refunded';
           total_amount?: number;
+          aadhar_pan?: string | null;
+          paid_amount?: number | null;
+          remaining_amount?: number | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -263,7 +272,7 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
-      order_status: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled';
+      order_status: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled' | 'refunded';
     };
     CompositeTypes: {
       [_ in never]: never;

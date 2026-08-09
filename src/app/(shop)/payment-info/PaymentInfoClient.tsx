@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Copy, Check, QrCode, Building2, Smartphone, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
 
+import UPIQRCode from '@/components/shop/UPIQRCode';
+
 export default function PaymentInfoClient() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
@@ -58,51 +60,8 @@ export default function PaymentInfoClient() {
             </div>
 
             {/* Rendered Crisp Unified QR Code */}
-            <div className="bg-white p-5 rounded-2xl border-4 border-amber-400/90 inline-block shadow-2xl">
-              <svg className="w-52 h-52 sm:w-60 sm:h-60 mx-auto" viewBox="0 0 100 100">
-                <rect x="0" y="0" width="100" height="100" fill="white"/>
-                
-                {/* Top Left Pos Tracker */}
-                <rect x="5" y="5" width="25" height="25" fill="#0f172a"/>
-                <rect x="8" y="8" width="19" height="19" fill="white"/>
-                <rect x="11" y="11" width="13" height="13" fill="#0f172a"/>
-
-                {/* Top Right Pos Tracker */}
-                <rect x="70" y="5" width="25" height="25" fill="#0f172a"/>
-                <rect x="73" y="8" width="19" height="19" fill="white"/>
-                <rect x="76" y="11" width="13" height="13" fill="#0f172a"/>
-
-                {/* Bottom Left Pos Tracker */}
-                <rect x="5" y="70" width="25" height="25" fill="#0f172a"/>
-                <rect x="8" y="73" width="19" height="19" fill="white"/>
-                <rect x="11" y="76" width="13" height="13" fill="#0f172a"/>
-
-                {/* QR Data Pattern */}
-                <rect x="35" y="8" width="6" height="6" fill="#ea580c"/>
-                <rect x="45" y="8" width="6" height="6" fill="#059669"/>
-                <rect x="55" y="8" width="6" height="6" fill="#2563eb"/>
-                
-                <rect x="35" y="18" width="6" height="6" fill="#0f172a"/>
-                <rect x="50" y="18" width="6" height="6" fill="#d97706"/>
-                <rect x="60" y="18" width="6" height="6" fill="#0f172a"/>
-
-                <rect x="10" y="35" width="6" height="6" fill="#0f172a"/>
-                <rect x="20" y="35" width="6" height="6" fill="#0f172a"/>
-                
-                {/* Center UPI Logo Shield */}
-                <rect x="34" y="34" width="32" height="32" fill="#0f172a" rx="6"/>
-                <circle cx="50" cy="50" r="11" fill="#f59e0b"/>
-                <text x="50" y="54" fontSize="9" fontWeight="900" fill="#0f172a" textAnchor="middle">UPI</text>
-
-                <rect x="70" y="35" width="6" height="6" fill="#0f172a"/>
-                <rect x="82" y="35" width="6" height="6" fill="#0f172a"/>
-                <rect x="70" y="45" width="6" height="6" fill="#0f172a"/>
-
-                <rect x="35" y="70" width="6" height="6" fill="#0f172a"/>
-                <rect x="48" y="70" width="6" height="6" fill="#0f172a"/>
-                <rect x="58" y="75" width="6" height="6" fill="#0f172a"/>
-                <rect x="70" y="70" width="22" height="22" fill="#0f172a"/>
-              </svg>
+            <div className="flex justify-center my-2">
+              <UPIQRCode upiId="krishnanhk55@okaxis" payeeName="Sri Arumugam Pyro Park" size={220} />
             </div>
 
             {/* Account & UPI Details Box */}

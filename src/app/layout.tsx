@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   },
 
   description:
-    "Buy Sivakasi Diwali crackers & fireworks online at Sri Arumugam Pyro Park — direct factory outlet prices. Wholesale & retail crackers, gift boxes, sparklers, flower pots, fancy crackers, sound crackers & more. WhatsApp: 8682913516. Free transport across India.",
+    "Buy Sivakasi Diwali crackers & fireworks online at Sri Arumugam Pyro Park — direct factory outlet prices. Wholesale & retail crackers, combo boxes, sparklers, flower pots, fancy crackers, sound crackers & more. WhatsApp: 8682913516. Free transport across India.",
 
   keywords: [
     "sivakasi crackers",
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     "tamil nadu crackers online",
     "sri arumugam pyro park",
     "arumugam crackers sivakasi",
-    "crackers gift box online",
+    "crackers combo box online",
     "diwali crackers 2025",
     "diwali crackers 2026",
     "sparklers online",
