@@ -405,7 +405,7 @@ export default function ProductManager({ products, categories }: Props) {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6 text-xs">
+            <form key={editingProduct?.id || 'new_product'} onSubmit={handleSubmit} className="space-y-6 text-xs">
               
               {/* Spacious 2-Column Form Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -461,16 +461,34 @@ export default function ProductManager({ products, categories }: Props) {
                   </div>
 
                   <div>
-                    <label className="block font-black text-slate-700 uppercase mb-1">Category</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-black text-slate-700 uppercase">Category</label>
+                      <a
+                        href="/admin/categories"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1"
+                      >
+                        + Manage / Add Categories
+                      </a>
+                    </div>
                     <select
                       name="category_id"
                       defaultValue={editingProduct?.category_id || 'none'}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500 cursor-pointer"
                     >
-                      <option value="none">-- Select Category --</option>
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                      ))}
+                      <option value="none">-- Select Category (Uncategorized) --</option>
+                      {categories && categories.length > 0 ? (
+                        categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="none" disabled>
+                          No categories found (Click '+ Manage / Add Categories' above to create one)
+                        </option>
+                      )}
                     </select>
                   </div>
 

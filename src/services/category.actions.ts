@@ -10,6 +10,9 @@ export async function createCategory(name: string, description?: string) {
 
   if (error) return { success: false, error: error.message };
   revalidatePath('/admin/categories');
+  revalidatePath('/admin/products');
+  revalidatePath('/admin/billing');
+  revalidatePath('/admin');
   revalidatePath('/');
   return { success: true };
 }
@@ -22,6 +25,9 @@ export async function updateCategory(id: string, name: string, description?: str
 
   if (error) return { success: false, error: error.message };
   revalidatePath('/admin/categories');
+  revalidatePath('/admin/products');
+  revalidatePath('/admin/billing');
+  revalidatePath('/admin');
   revalidatePath('/');
   return { success: true };
 }
@@ -30,6 +36,9 @@ export async function deleteCategory(id: string) {
   const { error } = await adminSupabase.from('categories').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
   revalidatePath('/admin/categories');
+  revalidatePath('/admin/products');
+  revalidatePath('/admin/billing');
+  revalidatePath('/admin');
   revalidatePath('/');
   return { success: true };
 }

@@ -2,6 +2,9 @@ import { adminSupabase } from '@/lib/supabase/admin';
 import ProductManager from './ProductManager';
 import type { Product, Category } from '@/types/product';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function AdminProductsPage() {
   const { data: productsData } = await adminSupabase
     .from('products')
