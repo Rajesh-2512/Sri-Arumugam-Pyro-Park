@@ -134,7 +134,7 @@ export default function GiftBoxManager({ initialGiftBoxes }: Props) {
       slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       description,
       price: Number(price),
-      discount: Number(discount),
+      discount: 0,
       stock: Number(stock),
       images,
       contents,
@@ -233,12 +233,8 @@ export default function GiftBoxManager({ initialGiftBoxes }: Props) {
               {/* Price & Items Summary */}
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">MRP Price</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Combo Box Price</span>
                   <span className="font-extrabold text-slate-900">{formatCurrency(box.price)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Discount</span>
-                  <span className="font-extrabold text-emerald-600">{box.discount}% OFF</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">Varieties</span>
@@ -302,25 +298,15 @@ export default function GiftBoxManager({ initialGiftBoxes }: Props) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block font-black text-slate-700 uppercase mb-1">MRP Price (₹) *</label>
+                      <label className="block font-black text-slate-700 uppercase mb-1">Price (₹) *</label>
                       <input
                         type="number"
                         value={price}
                         onChange={(e) => setPrice(Number(e.target.value))}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black focus:bg-white focus:outline-none focus:border-amber-500"
                         required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-black text-slate-700 uppercase mb-1">Discount (%)</label>
-                      <input
-                        type="number"
-                        value={discount}
-                        onChange={(e) => setDiscount(Number(e.target.value))}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black text-emerald-600 focus:bg-white focus:outline-none focus:border-amber-500"
                       />
                     </div>
 

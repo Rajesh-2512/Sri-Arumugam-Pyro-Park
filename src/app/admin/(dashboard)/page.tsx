@@ -14,6 +14,12 @@ export default async function AdminDashboardPage() {
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
 
+  const { data: lowStockProducts } = await adminSupabase
+    .from('products')
+    .select('*, categories(name)')
+    .lt('stock', 20)
+    .order('stock', { ascending: true });
+
   const { data: settings } = await adminSupabase
     .from('global_settings')
     .select('*')
@@ -97,17 +103,81 @@ export default async function AdminDashboardPage() {
           <span className="text-[11px] text-slate-400 font-medium">Listed across categories</span>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs hover:shadow-md transition-all space-y-2">
+        <div className={`bg-white rounded-2xl p-6 border shadow-xs hover:shadow-md transition-all space-y-2 ${
+          (lowStockProducts?.length || 0) > 0 ? 'border-rose-300 bg-rose-50/30' : 'border-slate-200/80'
+        }`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Global Discount</span>
-            <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shadow-2xs">
-              <Percent className="w-5 h-5" />
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Low Stock Alert</span>
+            <div className="w-10 h-10 rounded-xl bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-600 shadow-2xs">
+              <AlertTriangle className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 tracking-tight">{settings?.global_discount_percentage || 0}% OFF</p>
-          <span className="text-[11px] text-slate-400 font-medium">Applied storewide</span>
+          <p className="text-2xl font-black text-rose-700 tracking-tight">{lowStockProducts?.length || 0}</p>
+          <span className="text-[11px] text-rose-600 font-extrabold">&lt; 20 units remaining</span>
         </div>
 
+      </div>
+
+      {/* Low Stock Warning Card Section (< 20 Units) */}
+      <div className="bg-white rounded-3xl p-6 border-2 border-rose-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-rose-100 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-600">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900">Low Stock Alert (&lt; 20 Units Remaining)</h2>
+              <p className="text-xs text-rose-600 font-medium">Products with less than 20 units in stock needing restock</p>
+            </div>
+          </div>
+          <Link
+            href="/admin/products"
+            className="text-xs font-extrabold text-rose-600 hover:text-rose-700 hover:underline uppercase tracking-wider bg-rose-50 border border-rose-200 px-3.5 py-1.5 rounded-xl"
+          >
+            Manage Inventory →
+          </Link>
+        </div>
+
+        {lowStockProducts && lowStockProducts.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {lowStockProducts.map((prod: any) => {
+              const mainImg = Array.isArray(prod.image_url) ? prod.image_url[0] : prod.image_url;
+              return (
+                <div key={prod.id} className="p-3.5 bg-rose-50/50 border border-rose-200 rounded-2xl flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-rose-200 overflow-hidden shrink-0 flex items-center justify-center font-bold text-rose-600">
+                      {mainImg ? (
+                        <img src={mainImg} alt={prod.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Package className="w-5 h-5 text-rose-400" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 line-clamp-1">{prod.name}</h4>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">{prod.categories?.name || 'Crackers'}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="inline-block bg-rose-600 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow-2xs">
+                      {prod.stock} units
+                    </span>
+                    <Link
+                      href="/admin/products"
+                      className="block text-[10px] font-extrabold text-amber-600 hover:underline mt-1"
+                    >
+                      + Restock
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-emerald-600 py-6 text-center font-bold bg-emerald-50 rounded-2xl border border-emerald-200">
+            ✅ All products have sufficient stock (20+ units available).
+          </p>
+        )}
       </div>
 
       <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">

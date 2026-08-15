@@ -4,10 +4,11 @@ import { useState, useMemo } from 'react';
 import type { Order, OrderStatus } from '@/types/order';
 import { updateOrderStatus } from '@/services/order.actions';
 import { formatCurrency } from '@/lib/utils';
-import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown, Download, CreditCard, DollarSign, Edit2, FileText } from 'lucide-react';
+import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown, Download, CreditCard, DollarSign, Edit2, FileText, Receipt, AlertCircle } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { generateInvoicePDF, generateGSTInvoicePDF } from '@/lib/invoicePdfGenerator';
 import { updateOrderPaymentDetails } from '@/services/order.actions';
+import { createGstAuditBill } from '@/services/gst-bill.actions';
 
 const statusOptions: { value: OrderStatus; label: string; icon: any; color: string }[] = [
   { value: 'pending', label: 'Pending Review', icon: Clock, color: 'text-amber-700 bg-amber-50 border-amber-200' },
@@ -111,11 +112,101 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
   const [newPaidAmount, setNewPaidAmount] = useState<string>('');
   const [updatingPayment, setUpdatingPayment] = useState(false);
 
+  // GST Audit Bill Generator Modal State
+  const [gstModalOrder, setGstModalOrder] = useState<Order | null>(null);
+  const [gstCustName, setGstCustName] = useState('');
+  const [gstPhone, setGstPhone] = useState('');
+  const [gstAddress, setGstAddress] = useState('');
+  const [gstCity, setGstCity] = useState('');
+  const [gstPincode, setGstPincode] = useState('');
+  const [gstState, setGstState] = useState('Tamil Nadu');
+  const [gstAadhar, setGstAadhar] = useState('');
+  const [gstParticulars, setGstParticulars] = useState('Assorted Crackers Variety Pack (HSN 3604)');
+  const [gstTotalAmount, setGstTotalAmount] = useState<string>('');
+  const [generatingGst, setGeneratingGst] = useState(false);
+
   // Search & Filter & Sort State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const openGstModal = (order: Order) => {
+    setGstModalOrder(order);
+    setGstCustName(order.customer_name || 'Walk-in Counter Buyer');
+    setGstPhone(order.phone || '9999999999');
+    setGstAddress(order.address || 'In-Store Counter');
+    setGstCity(order.city || 'Sivakasi');
+    setGstPincode(order.pincode || '626123');
+
+    const pin = (order.pincode || '').trim();
+    const isTN = !pin.startsWith('605') && /^6[0-4]\d{4}$/.test(pin);
+    setGstState(isTN ? 'Tamil Nadu' : 'Inter-State Transport');
+
+    const aadharVal = order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1] || '';
+    setGstAadhar(aadharVal);
+
+    setGstParticulars('Assorted Crackers Variety Pack (HSN 3604)');
+    setGstTotalAmount(order.total_amount.toString());
+  };
+
+  const handleGenerateCustomGstBill = async () => {
+    if (!gstModalOrder) return;
+    const amountVal = parseFloat(gstTotalAmount);
+    if (isNaN(amountVal) || amountVal <= 0) {
+      alert('Please enter a valid GST bill total amount.');
+      return;
+    }
+
+    setGeneratingGst(true);
+
+    const customData = {
+      order_id: gstModalOrder.id,
+      customer_name: gstCustName,
+      phone: gstPhone,
+      address: gstAddress,
+      city: gstCity,
+      pincode: gstPincode,
+      state: gstState,
+      gstin_aadhar: gstAadhar,
+      particulars: gstParticulars,
+      total_amount: amountVal,
+    };
+
+    // Save GST bill record to database for audit trail
+    const res = await createGstAuditBill(customData);
+    const billNumber = res.data?.bill_number;
+
+    // Generate & download PDF invoice
+    await generateGSTInvoicePDF(
+      {
+        ...gstModalOrder,
+        customer_name: gstCustName,
+        phone: gstPhone,
+        address: gstAddress,
+        city: gstCity,
+        pincode: gstPincode,
+        total_amount: amountVal,
+        order_items: gstModalOrder.order_items || [],
+      },
+      true,
+      {
+        billNumber: billNumber,
+        customerName: gstCustName,
+        phone: gstPhone,
+        address: gstAddress,
+        city: gstCity,
+        pincode: gstPincode,
+        state: gstState,
+        gstinAadhar: gstAadhar,
+        particulars: gstParticulars,
+        totalAmount: amountVal,
+      }
+    );
+
+    setGeneratingGst(false);
+    setGstModalOrder(null);
+  };
 
   const getOrderPaymentBreakdown = (order: Order) => {
     let paid: number | null = null;
@@ -488,9 +579,9 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                             <Download className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => generateGSTInvoicePDF({ ...order, order_items: order.order_items || [] }, true)}
+                            onClick={() => openGstModal(order)}
                             className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-[10px] uppercase tracking-wider shadow-2xs transition-all cursor-pointer hover:scale-105 active:scale-95 inline-flex items-center gap-1 shrink-0"
-                            title="Download Formal 18% GST Tax Invoice (For Auditing & Courier Transport)"
+                            title="Generate Formal 18% GST Tax Invoice (Custom Amount & Audit Filing)"
                           >
                             <FileText className="w-3.5 h-3.5 text-white" />
                             <span>GST Bill</span>
@@ -727,6 +818,196 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
           </div>
         </div>
       )}
+
+      {/* GST Audit Bill Customization Modal */}
+      {gstModalOrder && (() => {
+        const parsedTotal = parseFloat(gstTotalAmount) || 0;
+        const liveTaxable = Math.round((parsedTotal / 1.18) * 100) / 100;
+        const liveGst = Math.round((parsedTotal - liveTaxable) * 100) / 100;
+        const isTN = gstState.toLowerCase().includes('tamil') || (!gstPincode.startsWith('605') && /^6[0-4]\d{4}$/.test(gstPincode));
+        const liveCgst = isTN ? Math.round((liveGst / 2) * 100) / 100 : 0;
+        const liveSgst = isTN ? Math.round((liveGst / 2) * 100) / 100 : 0;
+        const liveIgst = !isTN ? liveGst : 0;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl space-y-6 max-h-[92vh] overflow-y-auto my-auto">
+              
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
+                    <Receipt className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-xl text-slate-900">Generate GST Tax Invoice & Audit Bill</h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Order #{gstModalOrder.id.split('-')[0].toUpperCase()} • Enter custom amount for 18% GST tax invoice
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setGstModalOrder(null)}
+                  className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs">
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">Customer Name *</label>
+                    <input
+                      type="text"
+                      value={gstCustName}
+                      onChange={(e) => setGstCustName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">Mobile Phone *</label>
+                    <input
+                      type="text"
+                      value={gstPhone}
+                      onChange={(e) => setGstPhone(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-black text-slate-700 uppercase mb-1">Delivery Address *</label>
+                  <input
+                    type="text"
+                    value={gstAddress}
+                    onChange={(e) => setGstAddress(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">City *</label>
+                    <input
+                      type="text"
+                      value={gstCity}
+                      onChange={(e) => setGstCity(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">Pincode *</label>
+                    <input
+                      type="text"
+                      value={gstPincode}
+                      onChange={(e) => setGstPincode(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-black text-slate-700 uppercase mb-1">State</label>
+                    <select
+                      value={gstState}
+                      onChange={(e) => setGstState(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                    >
+                      <option value="Tamil Nadu">Tamil Nadu (State Code 33)</option>
+                      <option value="Inter-State Transport">Inter-State Transport (IGST)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-black text-slate-700 uppercase mb-1">Aadhar / PAN / GSTIN No. (Optional)</label>
+                  <input
+                    type="text"
+                    value={gstAadhar}
+                    onChange={(e) => setGstAadhar(e.target.value)}
+                    placeholder="e.g. 33AAAAA0000A1Z5 or Aadhar No."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-black text-slate-700 uppercase mb-1">Item Particulars Description *</label>
+                  <input
+                    type="text"
+                    value={gstParticulars}
+                    onChange={(e) => setGstParticulars(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-black text-slate-700 uppercase mb-1">Target Total GST Bill Amount (₹) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    value={gstTotalAmount}
+                    onChange={(e) => setGstTotalAmount(e.target.value)}
+                    className="w-full bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-base font-black text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    Pre-filled with actual order total ({formatCurrency(gstModalOrder.total_amount)}). You can edit this to any amount for audit filing.
+                  </span>
+                </div>
+
+                {/* Real-time Tally Calculation Box */}
+                <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-2 border border-slate-800 shadow-md">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Taxable Subtotal:</span>
+                    <span className="font-mono font-bold text-white">{formatCurrency(liveTaxable)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">GST (18% Total):</span>
+                    <span className="font-mono font-bold text-amber-400">{formatCurrency(liveGst)}</span>
+                  </div>
+                  {isTN ? (
+                    <div className="flex justify-between text-[11px] text-slate-400 pl-4 border-l-2 border-amber-500">
+                      <span>CGST (9%): {formatCurrency(liveCgst)}</span>
+                      <span>SGST (9%): {formatCurrency(liveSgst)}</span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between text-[11px] text-slate-400 pl-4 border-l-2 border-amber-500">
+                      <span>IGST (18%): {formatCurrency(liveIgst)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm font-black pt-2 border-t border-slate-800 text-emerald-400">
+                    <span>Grand Total (Incl. GST):</span>
+                    <span>{formatCurrency(parsedTotal)}</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setGstModalOrder(null)}
+                    className="px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGenerateCustomGstBill}
+                    disabled={generatingGst}
+                    className="px-7 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-black uppercase tracking-wider shadow-md transition-all cursor-pointer disabled:opacity-50 hover:scale-105"
+                  >
+                    {generatingGst ? 'Generating & Saving...' : 'Generate & Save GST Bill PDF'}
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

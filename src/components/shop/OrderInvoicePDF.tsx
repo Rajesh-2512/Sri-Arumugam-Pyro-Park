@@ -203,6 +203,23 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
             </div>
           </div>
 
+          {/* Signature Block */}
+          <div className="flex justify-end pt-2">
+            <div className="text-right space-y-1 select-none">
+              <p className="text-xs font-bold text-slate-800">For SRI ARUMUGAM PYRO PARK</p>
+              <div className="flex justify-end py-1">
+                <Image
+                  src="/signature.png"
+                  alt="Authorized Signature A. Marieswaran"
+                  width={140}
+                  height={50}
+                  className="h-10 w-auto object-contain"
+                />
+              </div>
+              <p className="text-[11px] font-bold text-slate-600">Authorized Signature: A. Marieswaran</p>
+            </div>
+          </div>
+
           {/* Footer Note */}
           <div className="border-t border-slate-100 pt-4 text-center space-y-1 text-[11px] text-slate-400 font-medium select-none">
             <p className="font-bold text-slate-600">Thank you for ordering with Sri Arumugam Pyro Park!</p>

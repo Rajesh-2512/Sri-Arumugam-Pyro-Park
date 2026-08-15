@@ -14,6 +14,7 @@ import {
   Gift,
   FileText,
   MessageSquareHeart,
+  Receipt,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/admin/gift-boxes', label: 'Combo Boxes', icon: Gift },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },
   { href: '/admin/orders', label: 'Orders & Receipts', icon: ShoppingBag },
+  { href: '/admin/gst-bills', label: 'GST Audit Bills', icon: Receipt },
   { href: '/admin/feedbacks', label: 'Customer Feedbacks', icon: MessageSquareHeart },
   { href: '/admin/settings', label: 'Admin Settings', icon: Settings },
 ];

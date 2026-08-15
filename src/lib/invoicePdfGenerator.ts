@@ -219,11 +219,16 @@ export async function generateInvoicePDF(order: PDFOrderDetails, triggerDownload
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-  doc.text('Signature', 190, signatureSectionY, { align: 'right' });
+  doc.text('For SRI ARUMUGAM PYRO PARK', 190, signatureSectionY, { align: 'right' });
 
   if (signatureImg) {
     doc.addImage(signatureImg, 'PNG', 145, signatureSectionY + 2, 48, 16);
   }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(slateGray[0], slateGray[1], slateGray[2]);
+  doc.text('Authorized Signature: A. Marieswaran', 190, signatureSectionY + 19, { align: 'right' });
 
   // --- FOOTER SECTION ---
   const footerY = signatureSectionY + 24;
@@ -241,8 +246,30 @@ export async function generateInvoicePDF(order: PDFOrderDetails, triggerDownload
   return doc;
 }
 
+export interface CustomGSTBillOptions {
+  billNumber?: string;
+  customerName?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  state?: string;
+  gstinAadhar?: string | null;
+  particulars?: string;
+  totalAmount?: number;
+  taxableAmount?: number;
+  gstAmount?: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
+}
+
 // --- GST AUDIT & PARCEL TRANSPORT INVOICE PDF GENERATOR ---
-export async function generateGSTInvoicePDF(order: PDFOrderDetails, triggerDownload: boolean = true) {
+export async function generateGSTInvoicePDF(
+  order: PDFOrderDetails,
+  triggerDownload: boolean = true,
+  customOptions?: CustomGSTBillOptions
+) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -255,8 +282,11 @@ export async function generateGSTInvoicePDF(order: PDFOrderDetails, triggerDownl
   const slateGray = [100, 116, 139];
   const lightBg = [248, 250, 252];
 
-  const shortId = order.id.slice(-8).toUpperCase();
-  const formattedDate = new Date(order.created_at).toLocaleDateString('en-IN', {
+  const shortId = customOptions?.billNumber
+    ? customOptions.billNumber.replace(/^GST-/, '')
+    : order.id.slice(-8).toUpperCase();
+
+  const formattedDate = new Date(order.created_at || Date.now()).toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -264,15 +294,25 @@ export async function generateGSTInvoicePDF(order: PDFOrderDetails, triggerDownl
     minute: '2-digit',
   });
 
-  const pin = (order.pincode || '').trim();
-  const isTN = !pin.startsWith('605') && /^6[0-4]\d{4}$/.test(pin);
+  const pin = (customOptions?.pincode || order.pincode || '').trim();
+  const stateName = customOptions?.state || (pin.startsWith('60') || /^6[0-4]\d{4}$/.test(pin) ? 'Tamil Nadu' : 'Inter-State Transport');
+  const isTN = stateName.toLowerCase().includes('tamil') || (!pin.startsWith('605') && /^6[0-4]\d{4}$/.test(pin));
 
-  const grandTotal = Number(order.total_amount || 0);
-  const taxableTotal = grandTotal / 1.18;
-  const totalGst = grandTotal - taxableTotal;
-  const cgst = isTN ? totalGst / 2 : 0;
-  const sgst = isTN ? totalGst / 2 : 0;
-  const igst = !isTN ? totalGst : 0;
+  const grandTotal = customOptions?.totalAmount !== undefined
+    ? Number(customOptions.totalAmount)
+    : Number(order.total_amount || 0);
+
+  const taxableTotal = customOptions?.taxableAmount !== undefined
+    ? Number(customOptions.taxableAmount)
+    : grandTotal / 1.18;
+
+  const totalGst = customOptions?.gstAmount !== undefined
+    ? Number(customOptions.gstAmount)
+    : grandTotal - taxableTotal;
+
+  const cgst = customOptions?.cgst !== undefined ? Number(customOptions.cgst) : (isTN ? totalGst / 2 : 0);
+  const sgst = customOptions?.sgst !== undefined ? Number(customOptions.sgst) : (isTN ? totalGst / 2 : 0);
+  const igst = customOptions?.igst !== undefined ? Number(customOptions.igst) : (!isTN ? totalGst : 0);
 
   const logoImg = await loadImage('/sriarumugamlogo.png');
   const signatureImg = await loadImage('/signature.png');
@@ -320,8 +360,15 @@ export async function generateGSTInvoicePDF(order: PDFOrderDetails, triggerDownl
   doc.line(14, headerY + 2, 196, headerY + 2);
 
   const customerBoxY = headerY + 5;
-  const hasAadhar = Boolean(order.aadhar_pan || (order.notes && order.notes.includes('Aadhar')));
+  const aadharNo = customOptions?.gstinAadhar || order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1] || '';
+  const hasAadhar = Boolean(aadharNo);
   const boxHeight = hasAadhar ? 32 : 26;
+
+  const custName = customOptions?.customerName || order.customer_name || 'Walk-in Counter Buyer';
+  const custPhone = customOptions?.phone || order.phone || '';
+  const custAddress = customOptions?.address || order.address || 'In-Store Counter';
+  const custCity = customOptions?.city || order.city || 'Sivakasi';
+  const custPincode = customOptions?.pincode || order.pincode || '626123';
 
   // BILLED TO BOX
   doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
@@ -337,48 +384,55 @@ export async function generateGSTInvoicePDF(order: PDFOrderDetails, triggerDownl
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-  doc.text(order.customer_name || 'Walk-in Counter Buyer', 18, customerBoxY + 12);
+  doc.text(custName, 18, customerBoxY + 12);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(slateGray[0], slateGray[1], slateGray[2]);
-  doc.text(`Mobile: ${order.phone ? '+91 ' + order.phone : 'N/A'} | State: ${isTN ? 'Tamil Nadu (State Code 33)' : 'Inter-State Transport'}`, 18, customerBoxY + 17);
-  doc.text(`Address: ${order.address || 'In-Store Counter'}, ${order.city || 'Sivakasi'} - ${order.pincode || '626123'}`, 18, customerBoxY + 22);
+  doc.text(`Mobile: ${custPhone ? '+91 ' + custPhone : 'N/A'} | State: ${isTN ? 'Tamil Nadu (State Code 33)' : 'Inter-State Transport'}`, 18, customerBoxY + 17);
+  doc.text(`Address: ${custAddress}, ${custCity} - ${custPincode}`, 18, customerBoxY + 22);
 
   if (hasAadhar) {
-    const aadharVal = order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1] || '';
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
-    doc.text(`Aadhar / PAN / GST: ${aadharVal}`, 18, customerBoxY + 27.5);
+    doc.text(`Aadhar / PAN / GST: ${aadharNo}`, 18, customerBoxY + 27.5);
   }
 
   // --- GST ITEM TABLE ---
   const tableHead = [['#', 'Item Particulars & HSN', 'Qty', 'Taxable Val', 'GST (18%)', 'Total (Rs.)']];
 
-  const itemsList = order.order_items && order.order_items.length > 0
-    ? order.order_items
-    : [
-        {
-          product_name: 'Pyrotechnic Firecracker Assortment Pack',
-          quantity: 1,
-          price: order.total_amount,
-        },
-      ];
+  // If custom options or single particulars entered, display clean single line item
+  const particularsTitle = customOptions?.particulars || 'Assorted Crackers Variety Pack (HSN 3604)';
+  
+  let tableData: any[][] = [];
 
-  const tableData = itemsList.map((item, index) => {
-    const itemTotalGross = Number(item.price || 0) * Number(item.quantity || 1);
-    const itemTaxable = itemTotalGross / 1.18;
-    const itemTax = itemTotalGross - itemTaxable;
-
-    return [
-      index + 1,
-      `${item.product_name || 'Firecracker Variety'} (HSN 3604)`,
-      item.quantity || 1,
-      `Rs. ${itemTaxable.toFixed(2)}`,
-      `Rs. ${itemTax.toFixed(2)}`,
-      `Rs. ${itemTotalGross.toFixed(2)}`,
+  if (customOptions?.particulars || !order.order_items || order.order_items.length === 0) {
+    tableData = [
+      [
+        1,
+        particularsTitle.includes('HSN 3604') ? particularsTitle : `${particularsTitle} (HSN 3604)`,
+        1,
+        `Rs. ${taxableTotal.toFixed(2)}`,
+        `Rs. ${totalGst.toFixed(2)}`,
+        `Rs. ${grandTotal.toFixed(2)}`,
+      ]
     ];
-  });
+  } else {
+    tableData = order.order_items.map((item, index) => {
+      const itemTotalGross = Number(item.price || 0) * Number(item.quantity || 1);
+      const itemTaxable = itemTotalGross / 1.18;
+      const itemTax = itemTotalGross - itemTaxable;
+
+      return [
+        index + 1,
+        `${item.product_name || 'Firecracker Variety'} (HSN 3604)`,
+        item.quantity || 1,
+        `Rs. ${itemTaxable.toFixed(2)}`,
+        `Rs. ${itemTax.toFixed(2)}`,
+        `Rs. ${itemTotalGross.toFixed(2)}`,
+      ];
+    });
+  }
 
   autoTable(doc, {
     startY: customerBoxY + boxHeight + 4,
@@ -480,7 +534,7 @@ export async function generateGSTInvoicePDF(order: PDFOrderDetails, triggerDownl
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.text('Authorized Signatory', 190, sigY + 18, { align: 'right' });
+  doc.text('Authorized Signatory: A. Marieswaran', 190, sigY + 18, { align: 'right' });
 
   // FOOTER
   const footerY = sigY + 22;

@@ -105,9 +105,7 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
       {/* Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-7xl mx-auto relative z-10">
         {giftBoxes.map((box) => {
-          const effectiveDisc = (box.discount && box.discount > 0) ? box.discount : globalDiscount;
-          const finalPrice = Math.round(box.price * (1 - effectiveDisc / 100));
-          const totalDisc = Math.round(effectiveDisc);
+          const finalPrice = box.price;
           const imagesList = (box.images && box.images.length > 0) ? box.images : ['/carousel-2.png'];
           const mainImg = imagesList[0];
           const isJustAdded = addedIds[box.id];
@@ -129,12 +127,7 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
               {/* Card Image Header */}
               <div className="relative w-full h-64 sm:h-72 bg-slate-50 flex items-center justify-center p-4 overflow-hidden border-b border-slate-100">
                 
-                {/* Discount Badge (Saffron-Red Gradient) */}
-                {totalDisc > 0 && (
-                  <span className="absolute top-4 left-4 bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-md z-10 uppercase tracking-wider">
-                    -{totalDisc}% OFF
-                  </span>
-                )}
+
 
                 {/* Persistent In-Cart Badge Top Right (Warm Amber/Saffron Theme) */}
                 {inCartQty > 0 && (
@@ -242,9 +235,7 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
 
       {/* ─── FULL DETAILS MODAL POPUP ─── */}
       {selectedBox && (() => {
-        const effectiveDisc = (selectedBox.discount && selectedBox.discount > 0) ? selectedBox.discount : globalDiscount;
-        const finalPrice = Math.round(selectedBox.price * (1 - effectiveDisc / 100));
-        const totalDisc = Math.round(effectiveDisc);
+        const finalPrice = selectedBox.price;
         const imagesList = (selectedBox.images && selectedBox.images.length > 0) ? selectedBox.images : ['/carousel-2.png'];
         const currentModalImg = imagesList[activeImgIdx] || imagesList[0];
         const isJustAdded = addedIds[selectedBox.id];
@@ -280,11 +271,7 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
                         sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-contain"
                       />
-                      {totalDisc > 0 && (
-                        <span className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-md uppercase">
-                          -{totalDisc}% OFF
-                        </span>
-                      )}
+
                     </div>
 
                     {/* Image Thumbnails */}
@@ -330,20 +317,12 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
 
                     {/* Price Breakdown Box */}
                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Factory Wholesale Rate</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Factory Wholesale Price</span>
                       <div className="flex items-baseline gap-3">
                         <span className="text-3xl font-black text-orange-600">
                           {formatCurrency(finalPrice * modalQty)}
                         </span>
-                        {selectedBox.price > finalPrice && (
-                          <span className="text-sm text-slate-400 line-through font-semibold">
-                            {formatCurrency(selectedBox.price * modalQty)}
-                          </span>
-                        )}
                       </div>
-                      <span className="text-[11px] text-emerald-700 font-bold block pt-1">
-                        ✓ Savings: {formatCurrency((selectedBox.price - finalPrice) * modalQty)} ({totalDisc}% Discount Applied)
-                      </span>
                     </div>
 
                     {/* Quantity Selector & Add Button */}

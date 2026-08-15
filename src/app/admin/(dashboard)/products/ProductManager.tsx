@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import type { Product, Category } from '@/types/product';
 import { createProduct, updateProduct, deleteProduct, uploadProductImage } from '@/services/product.actions';
 import { formatCurrency, getProductImage, getAllProductImages } from '@/lib/utils';
+import { calculateFinalPrice } from '@/lib/discount';
 import { Plus, Edit2, Trash2, X, Upload, Flame, CheckCircle2, AlertCircle, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, RotateCcw } from 'lucide-react';
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
 export default function ProductManager({ products, categories }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [formPrice, setFormPrice] = useState<number>(0);
+  const [formDiscount, setFormDiscount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -94,6 +97,8 @@ export default function ProductManager({ products, categories }: Props) {
 
   const openCreateModal = () => {
     setEditingProduct(null);
+    setFormPrice(0);
+    setFormDiscount(0);
     setImageUrls([]);
     setCustomUrlInput('');
     setMessage(null);
@@ -102,6 +107,8 @@ export default function ProductManager({ products, categories }: Props) {
 
   const openEditModal = (product: Product) => {
     setEditingProduct(product);
+    setFormPrice(product.price || 0);
+    setFormDiscount(product.discount || 0);
     setImageUrls(getAllProductImages(product.image_url));
     setCustomUrlInput('');
     setMessage(null);
@@ -277,17 +284,8 @@ export default function ProductManager({ products, categories }: Props) {
                   className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[120px]"
                 >
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
-                    <span>Base Price</span>
+                    <span>Price (₹)</span>
                     {renderSortIcon('price')}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('discount')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[120px]"
-                >
-                  <div className="flex items-center gap-1.5 whitespace-nowrap">
-                    <span>Discount</span>
-                    {renderSortIcon('discount')}
                   </div>
                 </th>
                 <th
@@ -332,10 +330,9 @@ export default function ProductManager({ products, categories }: Props) {
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-600">{p.categories?.name || 'Uncategorized'}</td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{formatCurrency(p.price)}</td>
-                    <td className="py-3.5 px-4 font-extrabold text-red-600">{p.discount}%</td>
+                    <td className="py-3.5 px-4 font-extrabold text-slate-900">{formatCurrency(p.price)}</td>
                     <td className="py-3.5 px-4">
-                      <span className={`font-bold ${p.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      <span className={`font-bold ${p.stock < 20 ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200' : 'text-emerald-600'}`}>
                         {p.stock} units
                       </span>
                     </td>
@@ -367,7 +364,7 @@ export default function ProductManager({ products, categories }: Props) {
               })
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     No products found matching your search or filters.
                   </td>
                 </tr>
@@ -424,27 +421,18 @@ export default function ProductManager({ products, categories }: Props) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block font-black text-slate-700 uppercase mb-1">MRP Price (₹) *</label>
+                      <label className="block font-black text-slate-700 uppercase mb-1">Price (₹) *</label>
                       <input
                         type="number"
                         step="0.01"
                         name="price"
-                        defaultValue={editingProduct?.price || ''}
+                        value={formPrice || ''}
+                        onChange={(e) => setFormPrice(parseFloat(e.target.value) || 0)}
+                        placeholder="100.00"
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black focus:bg-white focus:outline-none focus:border-amber-500"
                         required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-black text-slate-700 uppercase mb-1">Discount (%)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        name="discount"
-                        defaultValue={editingProduct?.discount || 0}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-black text-emerald-600 focus:bg-white focus:outline-none focus:border-amber-500"
                       />
                     </div>
 
