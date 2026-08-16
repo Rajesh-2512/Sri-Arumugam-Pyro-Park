@@ -25,7 +25,16 @@ const checkoutSchema = z.object({
   address: z.string().min(10, 'Please enter full detailed address'),
   city: z.string().min(2, 'City is required'),
   pincode: z.string().regex(/^\d{6}$/, 'Enter valid 6-digit PIN code'),
-  aadhar_pan: z.string().optional(),
+  aadhar_pan: z.string()
+    .min(1, 'Aadhar or PAN number is required')
+    .refine((val) => {
+      const clean = (val || '').replace(/\s+/g, '').toUpperCase();
+      const isAadhar = /^\d{12}$/.test(clean);
+      const isPan = /^[A-Z]{5}\d{4}[A-Z]$/.test(clean);
+      return isAadhar || isPan;
+    }, {
+      message: 'Enter valid 12-digit Aadhar (e.g. 564986799886) or 10-char PAN (e.g. ABCDE1234F)',
+    }),
   notes: z.string().optional(),
 });
 
@@ -239,13 +248,16 @@ export default function CheckoutClient({ isShopOpen = true }: { isShopOpen?: boo
             {/* Customer Aadhar / PAN No */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1">
-                <CreditCard className="w-3.5 h-3.5 text-amber-600" /> Customer Aadhar / PAN No (Optional / For Billing)
+                <CreditCard className="w-3.5 h-3.5 text-amber-600" /> Customer Aadhar / PAN No *
               </label>
               <input
                 {...register('aadhar_pan')}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition-colors uppercase font-mono"
                 placeholder="e.g. 564986799886 / ABCDE1234F"
               />
+              {errors.aadhar_pan && (
+                <p className="text-red-600 text-xs mt-1 font-bold">{errors.aadhar_pan.message}</p>
+              )}
             </div>
 
             {/* Address */}

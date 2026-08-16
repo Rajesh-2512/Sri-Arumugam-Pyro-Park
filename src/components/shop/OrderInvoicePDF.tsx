@@ -137,6 +137,11 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
               <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5 text-amber-600" /> +91 {order.phone}
               </p>
+              {(order.aadhar_pan || (order.notes && order.notes.includes('Aadhar'))) && (
+                <p className="text-xs font-bold text-amber-800 bg-amber-100/70 border border-amber-200 px-2 py-0.5 rounded-md inline-block">
+                  Aadhar / PAN No: {order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1]}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

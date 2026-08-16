@@ -4,6 +4,7 @@ import { adminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { OrderStatus } from '@/types/order';
+import { sendOrderNotificationEmail } from '@/lib/email';
 
 const orderSchema = z.object({
   customer_name: z.string().min(1, 'Customer name is required'),
@@ -12,7 +13,7 @@ const orderSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   pincode: z.string().optional(),
-  aadhar_pan: z.string().optional(),
+  aadhar_pan: z.string().min(1, 'Aadhar or PAN number is required'),
   paid_amount: z.number().optional(),
   notes: z.string().optional(),
   total_amount: z.number(),
@@ -161,6 +162,23 @@ export async function placeOrder(input: PlaceOrderInput) {
   }
 
   revalidatePath('/admin/orders');
+
+  // Asynchronously trigger email notification to sriarumugampyropark.svks@gmail.com
+  sendOrderNotificationEmail({
+    orderId: order.id,
+    customerName: orderData.customer_name,
+    phone: orderData.phone,
+    address: orderData.address,
+    city: orderData.city,
+    state: orderData.state,
+    pincode: orderData.pincode,
+    aadharPan: orderData.aadhar_pan,
+    totalAmount: orderData.total_amount,
+    paidAmount: orderData.paid_amount,
+    notes: orderData.notes,
+    items: items,
+  }).catch((err) => console.error('[EMAIL ERROR] Failed to dispatch order email:', err));
+
   return { success: true, orderId: order.id };
 }
 

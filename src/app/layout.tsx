@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit, Poppins } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -143,6 +144,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         style={{ fontFamily: "var(--font-poppins), system-ui, sans-serif" }}
       >
         {children}
+        <Analytics />
       </body>
     </html>
   );
