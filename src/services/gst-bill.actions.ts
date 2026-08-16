@@ -13,7 +13,10 @@ export interface GstAuditBillInput {
   state?: string;
   gstin_aadhar?: string | null;
   particulars?: string;
-  total_amount: number;
+  amount?: number;
+  total_amount?: number;
+  gst_rate?: number;
+  gst_mode?: 'exclusive' | 'inclusive';
 }
 
 export interface GstAuditBill {
@@ -62,10 +65,24 @@ export async function createGstAuditBill(input: GstAuditBillInput): Promise<{ su
     const stateVal = input.state || (pin.startsWith('60') || /^6[0-4]\d{4}$/.test(pin) ? 'Tamil Nadu' : 'Inter-State');
     const isTN = stateVal.toLowerCase().includes('tamil') || (!pin.startsWith('605') && /^6[0-4]\d{4}$/.test(pin));
 
-    const totalAmount = Number(input.total_amount || 0);
-    const taxableAmount = Math.round((totalAmount / 1.18) * 100) / 100;
-    const gstAmount = Math.round((totalAmount - taxableAmount) * 100) / 100;
-    
+    const gstRate = Number(input.gst_rate ?? 18);
+    const gstMode = input.gst_mode || 'exclusive';
+
+    let taxableAmount = 0;
+    let gstAmount = 0;
+    let totalAmount = 0;
+
+    if (gstMode === 'exclusive') {
+      const rawTaxable = Number(input.amount ?? input.total_amount ?? 0);
+      taxableAmount = Math.round(rawTaxable * 100) / 100;
+      gstAmount = Math.round((taxableAmount * (gstRate / 100)) * 100) / 100;
+      totalAmount = Math.round((taxableAmount + gstAmount) * 100) / 100;
+    } else {
+      totalAmount = Math.round(Number(input.total_amount ?? input.amount ?? 0) * 100) / 100;
+      taxableAmount = Math.round((totalAmount / (1 + gstRate / 100)) * 100) / 100;
+      gstAmount = Math.round((totalAmount - taxableAmount) * 100) / 100;
+    }
+
     const cgst = isTN ? Math.round((gstAmount / 2) * 100) / 100 : 0;
     const sgst = isTN ? Math.round((gstAmount / 2) * 100) / 100 : 0;
     const igst = !isTN ? gstAmount : 0;

@@ -37,6 +37,7 @@ export default function GstBillsManager({ initialBills }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Form State for creating a Standalone GST Bill
+  // Form State for creating a Standalone GST Bill
   const [custName, setCustName] = useState('Walk-in Counter Buyer');
   const [phone, setPhone] = useState('9999999999');
   const [address, setAddress] = useState('In-Store Counter');
@@ -45,7 +46,9 @@ export default function GstBillsManager({ initialBills }: Props) {
   const [stateName, setStateName] = useState('Tamil Nadu');
   const [gstinAadhar, setGstinAadhar] = useState('');
   const [particulars, setParticulars] = useState('Assorted Crackers Variety Pack (HSN 3604)');
-  const [totalAmountInput, setTotalAmountInput] = useState<string>('5000');
+  const [amountInput, setAmountInput] = useState<string>('5000');
+  const [gstMode, setGstMode] = useState<'exclusive' | 'inclusive'>('exclusive');
+  const [gstRate, setGstRate] = useState<number>(18);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -70,9 +73,21 @@ export default function GstBillsManager({ initialBills }: Props) {
   const totalGstCollected = useMemo(() => bills.reduce((sum, b) => sum + Number(b.gst_amount || 0), 0), [bills]);
 
   // Calculated Live Values for Modal
-  const parsedTotal = parseFloat(totalAmountInput) || 0;
-  const liveTaxable = Math.round((parsedTotal / 1.18) * 100) / 100;
-  const liveGst = Math.round((parsedTotal - liveTaxable) * 100) / 100;
+  const parsedInput = parseFloat(amountInput) || 0;
+  let liveTaxable = 0;
+  let liveGst = 0;
+  let liveGrandTotal = 0;
+
+  if (gstMode === 'exclusive') {
+    liveTaxable = Math.round(parsedInput * 100) / 100;
+    liveGst = Math.round((liveTaxable * (gstRate / 100)) * 100) / 100;
+    liveGrandTotal = Math.round((liveTaxable + liveGst) * 100) / 100;
+  } else {
+    liveGrandTotal = Math.round(parsedInput * 100) / 100;
+    liveTaxable = Math.round((liveGrandTotal / (1 + gstRate / 100)) * 100) / 100;
+    liveGst = Math.round((liveGrandTotal - liveTaxable) * 100) / 100;
+  }
+
   const isTN = stateName.toLowerCase().includes('tamil') || (!pincode.startsWith('605') && /^6[0-4]\d{4}$/.test(pincode));
   const liveCgst = isTN ? Math.round((liveGst / 2) * 100) / 100 : 0;
   const liveSgst = isTN ? Math.round((liveGst / 2) * 100) / 100 : 0;
@@ -87,15 +102,17 @@ export default function GstBillsManager({ initialBills }: Props) {
     setStateName('Tamil Nadu');
     setGstinAadhar('');
     setParticulars('Assorted Crackers Variety Pack (HSN 3604)');
-    setTotalAmountInput('5000');
+    setAmountInput('5000');
+    setGstMode('exclusive');
+    setGstRate(18);
     setMessage(null);
     setIsModalOpen(true);
   };
 
   const handleCreateBill = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (parsedTotal <= 0) {
-      setMessage({ type: 'error', text: 'Please enter a valid bill total amount' });
+    if (parsedInput <= 0) {
+      setMessage({ type: 'error', text: 'Please enter a valid bill amount' });
       return;
     }
 
@@ -111,7 +128,10 @@ export default function GstBillsManager({ initialBills }: Props) {
       state: stateName,
       gstin_aadhar: gstinAadhar,
       particulars,
-      total_amount: parsedTotal,
+      amount: liveTaxable,
+      total_amount: liveGrandTotal,
+      gst_rate: gstRate,
+      gst_mode: gstMode,
     };
 
     const res = await createGstAuditBill(inputData);
@@ -147,12 +167,14 @@ export default function GstBillsManager({ initialBills }: Props) {
           state: createdBill.state,
           gstinAadhar: createdBill.gstin_aadhar,
           particulars: createdBill.particulars,
-          totalAmount: createdBill.total_amount,
-          taxableAmount: createdBill.taxable_amount,
-          gstAmount: createdBill.gst_amount,
-          cgst: createdBill.cgst,
-          sgst: createdBill.sgst,
-          igst: createdBill.igst,
+          totalAmount: Number(createdBill.total_amount),
+          taxableAmount: Number(createdBill.taxable_amount),
+          gstAmount: Number(createdBill.gst_amount),
+          cgst: Number(createdBill.cgst),
+          sgst: Number(createdBill.sgst),
+          igst: Number(createdBill.igst),
+          gstRate,
+          gstMode,
         }
       );
 
@@ -554,14 +576,44 @@ export default function GstBillsManager({ initialBills }: Props) {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-black text-slate-700 uppercase mb-1">GST Calculation Mode</label>
+                  <select
+                    value={gstMode}
+                    onChange={(e) => setGstMode(e.target.value as 'exclusive' | 'inclusive')}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                  >
+                    <option value="exclusive">Add GST on Top (Amount + GST)</option>
+                    <option value="inclusive">GST Included in Total Amount</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-black text-slate-700 uppercase mb-1">GST Rate %</label>
+                  <select
+                    value={gstRate}
+                    onChange={(e) => setGstRate(parseFloat(e.target.value) || 18)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                  >
+                    <option value={18}>18% GST (Standard Fireworks Rate)</option>
+                    <option value={12}>12% GST</option>
+                    <option value={5}>5% GST</option>
+                    <option value={28}>28% GST</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="block font-black text-slate-700 uppercase mb-1">Target Total GST Bill Amount (₹) *</label>
+                <label className="block font-black text-slate-700 uppercase mb-1">
+                  {gstMode === 'exclusive' ? 'Taxable Amount (₹) [GST will be added on top] *' : 'Total Bill Amount (₹) [GST Included] *'}
+                </label>
                 <input
                   type="number"
                   step="0.01"
                   min="1"
-                  value={totalAmountInput}
-                  onChange={(e) => setTotalAmountInput(e.target.value)}
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
                   className="w-full bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-base font-black text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
                   required
                 />
@@ -570,26 +622,26 @@ export default function GstBillsManager({ initialBills }: Props) {
               {/* Real-time Tally Calculation Box */}
               <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-2 border border-slate-800 shadow-md">
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Taxable Subtotal:</span>
+                  <span className="text-slate-400">Taxable Subtotal Amount:</span>
                   <span className="font-mono font-bold text-white">{formatCurrency(liveTaxable)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">GST (18% Total):</span>
-                  <span className="font-mono font-bold text-amber-400">{formatCurrency(liveGst)}</span>
+                  <span className="text-slate-400">GST ({gstRate}% Total):</span>
+                  <span className="font-mono font-bold text-amber-400">+ {formatCurrency(liveGst)}</span>
                 </div>
                 {isTN ? (
                   <div className="flex justify-between text-[11px] text-slate-400 pl-4 border-l-2 border-amber-500">
-                    <span>CGST (9%): {formatCurrency(liveCgst)}</span>
-                    <span>SGST (9%): {formatCurrency(liveSgst)}</span>
+                    <span>CGST ({gstRate / 2}%): {formatCurrency(liveCgst)}</span>
+                    <span>SGST ({gstRate / 2}%): {formatCurrency(liveSgst)}</span>
                   </div>
                 ) : (
                   <div className="flex justify-between text-[11px] text-slate-400 pl-4 border-l-2 border-amber-500">
-                    <span>IGST (18%): {formatCurrency(liveIgst)}</span>
+                    <span>IGST ({gstRate}%): {formatCurrency(liveIgst)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-black pt-2 border-t border-slate-800 text-emerald-400">
-                  <span>Grand Total (Incl. GST):</span>
-                  <span>{formatCurrency(parsedTotal)}</span>
+                  <span>Grand Total ({gstMode === 'exclusive' ? 'Amount + GST' : 'Incl. GST'}):</span>
+                  <span>{formatCurrency(liveGrandTotal)}</span>
                 </div>
               </div>
 

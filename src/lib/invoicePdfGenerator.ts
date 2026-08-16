@@ -262,6 +262,8 @@ export interface CustomGSTBillOptions {
   cgst?: number;
   sgst?: number;
   igst?: number;
+  gstRate?: number;
+  gstMode?: 'exclusive' | 'inclusive' | 'none';
 }
 
 // --- GST AUDIT & PARCEL TRANSPORT INVOICE PDF GENERATOR ---
@@ -298,20 +300,30 @@ export async function generateGSTInvoicePDF(
   const stateName = customOptions?.state || (pin.startsWith('60') || /^6[0-4]\d{4}$/.test(pin) ? 'Tamil Nadu' : 'Inter-State Transport');
   const isTN = stateName.toLowerCase().includes('tamil') || (!pin.startsWith('605') && /^6[0-4]\d{4}$/.test(pin));
 
-  const grandTotal = customOptions?.totalAmount !== undefined
-    ? Number(customOptions.totalAmount)
-    : Number(order.total_amount || 0);
+  const gstRate = customOptions?.gstRate ?? 18;
+  const gstMode = customOptions?.gstMode ?? 'exclusive';
 
-  const taxableTotal = customOptions?.taxableAmount !== undefined
-    ? Number(customOptions.taxableAmount)
-    : grandTotal / 1.18;
+  let grandTotal = 0;
+  let taxableTotal = 0;
+  let totalGst = 0;
 
-  const totalGst = customOptions?.gstAmount !== undefined
-    ? Number(customOptions.gstAmount)
-    : grandTotal - taxableTotal;
+  if (customOptions?.taxableAmount !== undefined && customOptions?.totalAmount !== undefined && customOptions?.gstAmount !== undefined) {
+    taxableTotal = Number(customOptions.taxableAmount);
+    totalGst = Number(customOptions.gstAmount);
+    grandTotal = Number(customOptions.totalAmount);
+  } else if (gstMode === 'exclusive') {
+    const rawTaxable = Number(customOptions?.taxableAmount ?? customOptions?.totalAmount ?? order.total_amount ?? 0);
+    taxableTotal = Math.round(rawTaxable * 100) / 100;
+    totalGst = Math.round((taxableTotal * (gstRate / 100)) * 100) / 100;
+    grandTotal = Math.round((taxableTotal + totalGst) * 100) / 100;
+  } else {
+    grandTotal = Number(customOptions?.totalAmount ?? order.total_amount ?? 0);
+    taxableTotal = Math.round((grandTotal / (1 + gstRate / 100)) * 100) / 100;
+    totalGst = Math.round((grandTotal - taxableTotal) * 100) / 100;
+  }
 
-  const cgst = customOptions?.cgst !== undefined ? Number(customOptions.cgst) : (isTN ? totalGst / 2 : 0);
-  const sgst = customOptions?.sgst !== undefined ? Number(customOptions.sgst) : (isTN ? totalGst / 2 : 0);
+  const cgst = customOptions?.cgst !== undefined ? Number(customOptions.cgst) : (isTN ? Math.round((totalGst / 2) * 100) / 100 : 0);
+  const sgst = customOptions?.sgst !== undefined ? Number(customOptions.sgst) : (isTN ? Math.round((totalGst / 2) * 100) / 100 : 0);
   const igst = customOptions?.igst !== undefined ? Number(customOptions.igst) : (!isTN ? totalGst : 0);
 
   const logoImg = await loadImage('/sriarumugamlogo.png');
@@ -325,7 +337,7 @@ export async function generateGSTInvoicePDF(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-    doc.text('GSTIN: 33AAAFS5842K1Z9 | HSN CODE: 3604 (FIREWORKS)', 14, 29);
+    doc.text(`GSTIN: 33AAAFS5842K1Z9 | HSN CODE: 3604 (FIREWORKS)`, 14, 29);
     headerY = 31;
   } else {
     doc.setFont('helvetica', 'bold');
@@ -335,7 +347,7 @@ export async function generateGSTInvoicePDF(
 
     doc.setFontSize(8);
     doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-    doc.text('GSTIN: 33AAAFS5842K1Z9 | HSN CODE: 3604 (FIREWORKS)', 14, 24);
+    doc.text(`GSTIN: 33AAAFS5842K1Z9 | HSN CODE: 3604 (FIREWORKS)`, 14, 24);
     headerY = 26;
   }
 
@@ -399,7 +411,7 @@ export async function generateGSTInvoicePDF(
   }
 
   // --- GST ITEM TABLE ---
-  const tableHead = [['#', 'Item Particulars & HSN', 'Qty', 'Taxable Val', 'GST (18%)', 'Total (Rs.)']];
+  const tableHead = [['#', 'Item Particulars & HSN', 'Qty', 'Taxable Val', `GST (${gstRate}%)`, 'Total (Rs.)']];
 
   // If custom options or single particulars entered, display clean single line item
   const particularsTitle = customOptions?.particulars || 'Assorted Crackers Variety Pack (HSN 3604)';
@@ -419,17 +431,30 @@ export async function generateGSTInvoicePDF(
     ];
   } else {
     tableData = order.order_items.map((item, index) => {
-      const itemTotalGross = Number(item.price || 0) * Number(item.quantity || 1);
-      const itemTaxable = itemTotalGross / 1.18;
-      const itemTax = itemTotalGross - itemTaxable;
+      const itemUnitPrice = Number(item.price || 0);
+      const qty = Number(item.quantity || 1);
+      
+      let itemTaxable = 0;
+      let itemTax = 0;
+      let itemTotal = 0;
+
+      if (gstMode === 'exclusive') {
+        itemTaxable = itemUnitPrice * qty;
+        itemTax = Math.round((itemTaxable * (gstRate / 100)) * 100) / 100;
+        itemTotal = Math.round((itemTaxable + itemTax) * 100) / 100;
+      } else {
+        itemTotal = itemUnitPrice * qty;
+        itemTaxable = Math.round((itemTotal / (1 + gstRate / 100)) * 100) / 100;
+        itemTax = Math.round((itemTotal - itemTaxable) * 100) / 100;
+      }
 
       return [
         index + 1,
         `${item.product_name || 'Firecracker Variety'} (HSN 3604)`,
-        item.quantity || 1,
+        qty,
         `Rs. ${itemTaxable.toFixed(2)}`,
         `Rs. ${itemTax.toFixed(2)}`,
-        `Rs. ${itemTotalGross.toFixed(2)}`,
+        `Rs. ${itemTotal.toFixed(2)}`,
       ];
     });
   }
@@ -480,16 +505,18 @@ export async function generateGSTInvoicePDF(
   doc.text(`Rs. ${taxableTotal.toFixed(2)}`, 190, taxY, { align: 'right' });
   taxY += 5;
 
+  const halfRate = gstRate / 2;
+
   if (isTN) {
-    doc.text('CGST (9%):', 104, taxY);
+    doc.text(`CGST (${halfRate}%):`, 104, taxY);
     doc.text(`Rs. ${cgst.toFixed(2)}`, 190, taxY, { align: 'right' });
     taxY += 5;
 
-    doc.text('SGST (9%):', 104, taxY);
+    doc.text(`SGST (${halfRate}%):`, 104, taxY);
     doc.text(`Rs. ${sgst.toFixed(2)}`, 190, taxY, { align: 'right' });
     taxY += 5;
   } else {
-    doc.text('IGST (18%):', 104, taxY);
+    doc.text(`IGST (${gstRate}%):`, 104, taxY);
     doc.text(`Rs. ${igst.toFixed(2)}`, 190, taxY, { align: 'right' });
     taxY += 5;
   }
@@ -500,7 +527,7 @@ export async function generateGSTInvoicePDF(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
-  doc.text('Grand Total (Incl. GST):', 104, taxY + 4);
+  doc.text(gstMode === 'exclusive' ? 'Grand Total (Amount + GST):' : 'Grand Total (Incl. GST):', 104, taxY + 4);
   doc.text(`Rs. ${grandTotal.toFixed(2)}`, 190, taxY + 4, { align: 'right' });
 
   // TRANSPORT & LEGAL DECLARATION BOX (LEFT SIDE)

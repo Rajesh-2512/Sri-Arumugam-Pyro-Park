@@ -39,7 +39,7 @@ import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-import { generateInvoicePDF } from '@/lib/invoicePdfGenerator';
+import { generateInvoicePDF, generateGSTInvoicePDF } from '@/lib/invoicePdfGenerator';
 
 interface BillingManagerProps {
   products: Product[];
@@ -307,24 +307,62 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
     const paidVal = paidAmountInput ? parseFloat(paidAmountInput) : grandTotal;
     const remVal = Math.max(0, grandTotal - paidVal);
 
-    await generateInvoicePDF({
-      id: orderId,
-      customer_name: customerName,
-      phone,
-      address: address || 'In-Store Counter Buyer',
-      city: city || 'Sivakasi',
-      pincode: pincode || '626123',
-      aadhar_pan: aadharPan || null,
-      paid_amount: paidVal,
-      remaining_amount: remVal,
-      total_amount: grandTotal,
-      created_at: createdAtDate || new Date().toISOString(),
-      order_items: lineItems.map((item) => ({
-        product_name: item.name,
-        price: item.finalPrice,
-        quantity: item.quantity,
-      })),
-    });
+    if (gstMode !== 'none') {
+      await generateGSTInvoicePDF(
+        {
+          id: orderId,
+          customer_name: customerName,
+          phone,
+          address: address || 'In-Store Counter Buyer',
+          city: city || 'Sivakasi',
+          pincode: pincode || '626123',
+          aadhar_pan: aadharPan || null,
+          paid_amount: paidVal,
+          remaining_amount: remVal,
+          total_amount: grandTotal,
+          created_at: createdAtDate || new Date().toISOString(),
+          order_items: lineItems.map((item) => ({
+            product_name: item.name,
+            price: item.finalPrice,
+            quantity: item.quantity,
+          })),
+        },
+        true,
+        {
+          billNumber: `GST-${orderId.slice(-8).toUpperCase()}`,
+          customerName: customerName,
+          phone,
+          address: address || 'In-Store Counter',
+          city: city || 'Sivakasi',
+          pincode: pincode || '626123',
+          gstinAadhar: gstin || aadharPan || null,
+          totalAmount: grandTotal,
+          taxableAmount: discountedSubtotal,
+          gstAmount,
+          gstRate,
+          gstMode,
+        }
+      );
+    } else {
+      await generateInvoicePDF({
+        id: orderId,
+        customer_name: customerName,
+        phone,
+        address: address || 'In-Store Counter Buyer',
+        city: city || 'Sivakasi',
+        pincode: pincode || '626123',
+        aadhar_pan: aadharPan || null,
+        paid_amount: paidVal,
+        remaining_amount: remVal,
+        total_amount: grandTotal,
+        created_at: createdAtDate || new Date().toISOString(),
+        order_items: lineItems.map((item) => ({
+          product_name: item.name,
+          price: item.finalPrice,
+          quantity: item.quantity,
+        })),
+      });
+    }
   };
 
   // Submit Order Action
