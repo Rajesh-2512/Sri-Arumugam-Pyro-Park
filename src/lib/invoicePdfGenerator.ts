@@ -391,7 +391,7 @@ export async function generateGSTInvoicePDF(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(amberColor[0], amberColor[1], amberColor[2]);
-  doc.text('BUYER & RECIPIENT DETAILS (COURIER TRANSPORT COPY):', 18, customerBoxY + 6);
+  doc.text('BUYER & RECIPIENT DETAILS :', 18, customerBoxY + 6);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);

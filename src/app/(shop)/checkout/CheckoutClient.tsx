@@ -17,24 +17,23 @@ import {
   getOrderHistoryFromCookie,
   CustomerOrderHistoryItem,
 } from '@/lib/customer-cookies';
+import {
+  phoneZodSchema,
+  pincodeZodSchema,
+  aadharPanZodSchema,
+  validateAadharOrPan,
+  isValidIndianPhone,
+  isValidIndianPincode,
+} from '@/lib/validation';
 
 const checkoutSchema = z.object({
   customer_name: z.string().min(2, 'Name must be at least 2 characters'),
-  phone: z.string().regex(/^[6-9]\d{9}$/, 'Enter valid 10-digit Indian mobile number'),
+  phone: phoneZodSchema,
   state: z.string().min(1, 'State selection is required'),
   address: z.string().min(10, 'Please enter full detailed address'),
   city: z.string().min(2, 'City is required'),
-  pincode: z.string().regex(/^\d{6}$/, 'Enter valid 6-digit PIN code'),
-  aadhar_pan: z.string()
-    .min(1, 'Aadhar or PAN number is required')
-    .refine((val) => {
-      const clean = (val || '').replace(/\s+/g, '').toUpperCase();
-      const isAadhar = /^\d{12}$/.test(clean);
-      const isPan = /^[A-Z]{5}\d{4}[A-Z]$/.test(clean);
-      return isAadhar || isPan;
-    }, {
-      message: 'Enter valid 12-digit Aadhar (e.g. 564986799886) or 10-char PAN (e.g. ABCDE1234F)',
-    }),
+  pincode: pincodeZodSchema,
+  aadhar_pan: aadharPanZodSchema,
   notes: z.string().optional(),
 });
 
@@ -59,6 +58,15 @@ export default function CheckoutClient({ isShopOpen = true }: { isShopOpen?: boo
   // Watch form fields to compute min order rules & save to cookies
   const formValues = watch();
   const rawPincode = (formValues.pincode || '').trim().replace(/\D/g, '');
+
+  // Live validation state for UI helpers
+  const phoneVal = (formValues.phone || '').trim().replace(/\D/g, '');
+  const isPhoneValid = isValidIndianPhone(phoneVal);
+
+  const aadharPanVal = formValues.aadhar_pan || '';
+  const aadharPanResult = validateAadharOrPan(aadharPanVal);
+
+  const isPinValid = isValidIndianPincode(rawPincode);
 
   // Smart Pincode evaluation:
   // Tamil Nadu Pincodes start with 60xxxx - 64xxxx (excluding 605xxx Pondicherry)
@@ -232,13 +240,41 @@ export default function CheckoutClient({ isShopOpen = true }: { isShopOpen?: boo
 
             {/* Phone */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1">
-                <Phone className="w-3.5 h-3.5 text-amber-600" /> Mobile Number *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-amber-600" /> Mobile Number *
+                </label>
+                {phoneVal.length > 0 && (
+                  <span
+                    className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border transition-all ${
+                      isPhoneValid
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-red-50 text-red-700 border-red-200'
+                    }`}
+                  >
+                    {isPhoneValid
+                      ? '✓ Valid 10-Digit Mobile'
+                      : `Must start with 6-9 (${phoneVal.length}/10 digits)`}
+                  </span>
+                )}
+              </div>
               <input
                 {...register('phone')}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition-colors"
-                placeholder="9876543210"
+                maxLength={10}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                  const target = e.currentTarget;
+                  const digits = target.value.replace(/\D/g, '').slice(0, 10);
+                  target.value = digits;
+                  setValue('phone', digits, { shouldValidate: true });
+                }}
+                className={`w-full bg-slate-50 border ${
+                  errors.phone
+                    ? 'border-red-400 bg-red-50/20'
+                    : isPhoneValid
+                    ? 'border-emerald-400 bg-emerald-50/10'
+                    : 'border-slate-200'
+                } rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition-colors font-mono`}
+                placeholder="9345870138"
               />
               {errors.phone && (
                 <p className="text-red-600 text-xs mt-1 font-bold">{errors.phone.message}</p>
@@ -247,14 +283,54 @@ export default function CheckoutClient({ isShopOpen = true }: { isShopOpen?: boo
 
             {/* Customer Aadhar / PAN No */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1">
-                <CreditCard className="w-3.5 h-3.5 text-amber-600" /> Customer Aadhar / PAN No *
-              </label>
+              <div className="flex flex-wrap items-center justify-between mb-1.5 gap-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                  <CreditCard className="w-3.5 h-3.5 text-amber-600" /> Customer Aadhar / PAN No *
+                </label>
+                {aadharPanVal.trim().length > 0 && (
+                  <span
+                    className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border transition-all ${
+                      aadharPanResult.isValid
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}
+                  >
+                    {aadharPanResult.isValid
+                      ? aadharPanResult.type === 'aadhar'
+                        ? '🟢 Valid 12-Digit Aadhar Card'
+                        : '🟢 Valid 10-Char PAN Card'
+                      : aadharPanResult.message || '12-digit Aadhar or 10-char PAN required'}
+                  </span>
+                )}
+              </div>
               <input
                 {...register('aadhar_pan')}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition-colors uppercase font-mono"
-                placeholder="e.g. 564986799886 / ABCDE1234F"
+                maxLength={14}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                  const target = e.currentTarget;
+                  let val = target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                  // If numeric (Aadhar), cap strictly at 12 digits
+                  if (/^\d+$/.test(val)) {
+                    val = val.slice(0, 12);
+                  } else {
+                    // PAN card format (alphanumeric), cap strictly at 10 chars
+                    val = val.slice(0, 10);
+                  }
+                  target.value = val;
+                  setValue('aadhar_pan', val, { shouldValidate: true });
+                }}
+                className={`w-full bg-slate-50 border ${
+                  errors.aadhar_pan
+                    ? 'border-red-400 bg-red-50/20'
+                    : aadharPanResult.isValid
+                    ? 'border-emerald-400 bg-emerald-50/10'
+                    : 'border-slate-200'
+                } rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition-colors uppercase font-mono`}
+                placeholder="e.g. 564986799886 (Aadhar) or ABCDE1234F (PAN)"
               />
+              <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                Enter either a 12-digit Aadhar Card number or 10-character PAN Card number.
+              </p>
               {errors.aadhar_pan && (
                 <p className="text-red-600 text-xs mt-1 font-bold">{errors.aadhar_pan.message}</p>
               )}
@@ -278,34 +354,66 @@ export default function CheckoutClient({ isShopOpen = true }: { isShopOpen?: boo
 
             {/* City & Pincode Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    City / Town *
-                  </label>
-                  <input
-                    {...register('city')}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition-colors"
-                    placeholder="Chennai / Madurai / Sivakasi"
-                  />
-                  {errors.city && (
-                    <p className="text-red-600 text-xs mt-1 font-bold">{errors.city.message}</p>
-                  )}
-                </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  City / Town *
+                </label>
+                <input
+                  {...register('city')}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition-colors"
+                  placeholder="Chennai / Madurai / Sivakasi"
+                />
+                {errors.city && (
+                  <p className="text-red-600 text-xs mt-1 font-bold">{errors.city.message}</p>
+                )}
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
                     Pincode *
                   </label>
-                  <input
-                    {...register('pincode')}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition-colors font-mono"
-                    placeholder="626123"
-                  />
-                  {errors.pincode && (
-                    <p className="text-red-600 text-xs mt-1 font-bold">{errors.pincode.message}</p>
+                  {rawPincode.length > 0 && (
+                    <span
+                      className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full border transition-all ${
+                        isPinValid
+                          ? isTN
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-red-50 text-red-700 border-red-200'
+                      }`}
+                    >
+                      {isPinValid
+                        ? isTN
+                          ? '✓ TN Pincode'
+                          : '✓ Non-TN Pincode'
+                        : `${rawPincode.length}/6 digits`}
+                    </span>
                   )}
                 </div>
+                <input
+                  {...register('pincode')}
+                  maxLength={6}
+                  onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                    const target = e.currentTarget;
+                    const digits = target.value.replace(/\D/g, '').slice(0, 6);
+                    target.value = digits;
+                    setValue('pincode', digits, { shouldValidate: true });
+                  }}
+                  className={`w-full bg-slate-50 border ${
+                    errors.pincode
+                      ? 'border-red-400 bg-red-50/20'
+                      : isPinValid
+                      ? 'border-emerald-400 bg-emerald-50/10'
+                      : 'border-slate-200'
+                  } rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition-colors font-mono`}
+                  placeholder="626123"
+                />
+                {errors.pincode && (
+                  <p className="text-red-600 text-xs mt-1 font-bold">{errors.pincode.message}</p>
+                )}
               </div>
+            </div>
 
             {/* Notes */}
             <div>

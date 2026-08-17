@@ -40,6 +40,7 @@ export default function Navbar({ shopName = 'Sri Arumugam Pyro Park', contactNum
               alt={shopName}
               width={150}
               height={150}
+              priority
               className="object-contain group-hover:scale-105 transition-transform duration-300"
             />
           </Link>

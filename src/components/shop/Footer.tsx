@@ -252,8 +252,21 @@ export default function Footer({ shopName = 'Sri Arumugam Pyro Park', contactNum
 
         {/* Bottom Bar */}
         <div className="pt-6 border-t border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm text-slate-400">
-          <div>
-            Copyright © sri arumugampyropark all rights reserved.
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <span>Copyright © sri arumugampyropark all rights reserved.</span>
+            <span className="hidden sm:inline text-slate-700">•</span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+              Developed by{' '}
+              <a
+                href="https://rajesh-dev.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-extrabold text-amber-400 hover:text-amber-300 underline underline-offset-4 decoration-amber-500/50 hover:decoration-amber-400 transition-all inline-flex items-center gap-1"
+              >
+                Rajesh
+                <ExternalLink className="w-3 h-3 text-amber-400" />
+              </a>
+            </span>
           </div>
           <div className="flex items-center gap-4 text-slate-400 font-medium">
             <Link href="/terms" className="hover:text-amber-400 transition-colors">

@@ -5,15 +5,16 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { OrderStatus } from '@/types/order';
 import { sendOrderNotificationEmail } from '@/lib/email';
+import { phoneZodSchema, pincodeZodSchema, aadharPanZodSchema } from '@/lib/validation';
 
 const orderSchema = z.object({
   customer_name: z.string().min(1, 'Customer name is required'),
-  phone: z.string().min(5, 'Phone number is required'),
+  phone: phoneZodSchema,
   address: z.string().min(1, 'Address is required'),
   city: z.string().optional(),
   state: z.string().optional(),
-  pincode: z.string().optional(),
-  aadhar_pan: z.string().min(1, 'Aadhar or PAN number is required'),
+  pincode: pincodeZodSchema,
+  aadhar_pan: aadharPanZodSchema,
   paid_amount: z.number().optional(),
   notes: z.string().optional(),
   total_amount: z.number(),
