@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Download, CheckCircle2, Sparkles, Phone, User, Calendar, FileText, MapPin } from 'lucide-react';
+import { Download, CheckCircle2, Sparkles, Phone, User, Calendar, FileText, MapPin, Store } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 interface OrderItem {
@@ -127,11 +127,26 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
             </div>
           </div>
 
-          {/* Customer & Delivery Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-200/80">
+          {/* Shop From Address, Customer & Delivery Details */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-200/80">
             <div className="space-y-2">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 border-b border-slate-200 pb-2 select-none">
-                <User className="w-4 h-4 text-amber-600" /> Billed To / Customer Details
+                <Store className="w-4 h-4 text-amber-600" /> From Address
+              </h3>
+              <p className="text-base font-extrabold text-[#1b2342]">Sri Arumugam Pyro Park</p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                4/2017, 56 House Colony,<br />
+                Nalan Crackers Backside,<br />
+                Sivakasi, TN, 626189 India
+              </p>
+              <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-amber-600" /> +91 8682913516
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 border-b border-slate-200 pb-2 select-none">
+                <User className="w-4 h-4 text-amber-600" /> Billing Address
               </h3>
               <p className="text-base font-extrabold text-[#1b2342]">{order.customer_name}</p>
               <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
@@ -139,14 +154,14 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
               </p>
               {(order.aadhar_pan || (order.notes && order.notes.includes('Aadhar'))) && (
                 <p className="text-xs font-bold text-amber-800 bg-amber-100/70 border border-amber-200 px-2 py-0.5 rounded-md inline-block">
-                  Aadhar / PAN No: {order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1]}
+                  Aadhar No: {order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1]}
                 </p>
               )}
             </div>
 
             <div className="space-y-2">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 border-b border-slate-200 pb-2 select-none">
-                <MapPin className="w-4 h-4 text-amber-600" /> Shipping & Delivery Address
+                <MapPin className="w-4 h-4 text-amber-600" /> Delivery Address
               </h3>
               <p className="text-xs text-slate-700 font-medium leading-relaxed">
                 {order.address}

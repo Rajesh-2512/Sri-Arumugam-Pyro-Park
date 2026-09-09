@@ -116,6 +116,11 @@ export default function GstBillsManager({ initialBills }: Props) {
       return;
     }
 
+    if (!gstinAadhar.trim()) {
+      setMessage({ type: 'error', text: 'Customer Aadhar / PAN / GSTIN No. is required for GST Bill.' });
+      return;
+    }
+
     setSubmitting(true);
     setMessage(null);
 
@@ -555,12 +560,13 @@ export default function GstBillsManager({ initialBills }: Props) {
               </div>
 
               <div>
-                <label className="block font-black text-slate-700 uppercase mb-1">Aadhar / PAN / GSTIN No. (Optional)</label>
+                <label className="block font-black text-slate-700 uppercase mb-1">Aadhar / PAN / GSTIN No. *</label>
                 <input
                   type="text"
+                  required
                   value={gstinAadhar}
                   onChange={(e) => setGstinAadhar(e.target.value)}
-                  placeholder="e.g. 33AAAAA0000A1Z5 or Aadhar No."
+                  placeholder="e.g. 33AAAAA0000A1Z5 or Aadhar / PAN No."
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
                 />
               </div>
