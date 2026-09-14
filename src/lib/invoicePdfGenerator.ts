@@ -10,6 +10,7 @@ export interface PDFOrderItem {
 
 export interface PDFOrderDetails {
   id: string;
+  invoice_number?: string | null;
   customer_name: string;
   phone: string;
   address: string;
@@ -159,9 +160,9 @@ export async function generateInvoicePDF(order: PDFOrderDetails, triggerDownload
   const brandOrange = [234, 88, 12]; // #ea580c
   const slateGray = [100, 116, 139];
 
-  const orderId = order.id.includes('-')
+  const orderId = order.invoice_number || (order.id.includes('-')
     ? order.id.split('-')[0].toUpperCase()
-    : order.id.toUpperCase();
+    : order.id.toUpperCase());
 
   const orderDateObj = new Date(order.created_at || Date.now());
   const formattedDate = orderDateObj.toLocaleDateString('en-IN', {
@@ -299,16 +300,18 @@ export async function generateInvoicePDF(order: PDFOrderDetails, triggerDownload
       textColor: [234, 88, 12],
       fontStyle: 'bold',
       fontSize: 9,
-      halign: 'left',
+      halign: 'center',
       cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
     },
     columnStyles: {
       0: { cellWidth: 14, halign: 'center' },
-      1: { cellWidth: 'auto' },
+      1: { cellWidth: 79, halign: 'left' },
       2: { cellWidth: 22, halign: 'center' },
       3: { cellWidth: 32, halign: 'right' },
       4: { cellWidth: 35, halign: 'right' },
     },
+    tableWidth: 182,
+    margin: { left: 14, right: 16 },
     styles: {
       fontSize: 9,
       textColor: [0, 0, 0],
@@ -320,6 +323,12 @@ export async function generateInvoicePDF(order: PDFOrderDetails, triggerDownload
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.6);
         doc.line(14, data.cell.y + data.cell.height, 196, data.cell.y + data.cell.height);
+      }
+    },
+    didParseCell: (data) => {
+      if (data.section === 'head') {
+        if (data.column.index === 1) data.cell.styles.halign = 'left';
+        if (data.column.index === 3 || data.column.index === 4) data.cell.styles.halign = 'right';
       }
     },
   });
@@ -407,9 +416,9 @@ export async function generateGSTInvoicePDF(
     format: 'a4',
   });
 
-  const orderId = order.id.includes('-')
+  const orderId = order.invoice_number || (order.id.includes('-')
     ? order.id.split('-')[0].toUpperCase()
-    : order.id.toUpperCase();
+    : order.id.toUpperCase());
 
   const shortId = customOptions?.billNumber
     ? customOptions.billNumber.replace(/^GST-/, '')
@@ -468,28 +477,29 @@ export async function generateGSTInvoicePDF(
 
   // Helper to draw an entire single GST invoice copy
   const renderGstInvoicePage = (copyLabel: 'ORIGINAL FOR RECIPIENT' | 'DUPLICATE COPY') => {
-    const leftMargin = 10;
-    const rightMargin = 200;
+    const leftMargin = 8;
+    const rightMargin = 202;
     const contentWidth = rightMargin - leftMargin;
+    const borderColor = [234, 88, 12] as [number, number, number];
+    const headerAccent = [234, 88, 12] as [number, number, number];
 
     // Top Header: Shop Info (Left) & Contact Details (Right)
-    let topY = 10;
+    const topY = 10;
     if (logoImg) {
-      doc.addImage(logoImg, 'PNG', leftMargin, topY, 40, 14);
-      topY += 15;
+      doc.addImage(logoImg, 'PNG', leftMargin, topY, 43, 15);
     }
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10.5);
     doc.setTextColor(0, 0, 0);
-    doc.text(SHOP_INFO.name, leftMargin, topY);
+    doc.text(SHOP_INFO.name, leftMargin + 48, topY + 5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(60, 60, 60);
-    doc.text(SHOP_INFO.addressLine1, leftMargin, topY + 4);
-    doc.text(SHOP_INFO.addressLine2, leftMargin, topY + 7.5);
-    doc.text('Sivakasi, Virudhunagar, Tamil Nadu - 626189', leftMargin, topY + 11);
+    doc.text(SHOP_INFO.addressLine1, leftMargin + 48, topY + 9);
+    doc.text(SHOP_INFO.addressLine2, leftMargin + 48, topY + 12.5);
+    doc.text('Sivakasi, Virudhunagar, Tamil Nadu - 626189', leftMargin + 48, topY + 16);
 
     // Header Right
     doc.setFont('helvetica', 'bold');
@@ -502,10 +512,10 @@ export async function generateGSTInvoicePDF(
     doc.text(`Email : ${SHOP_INFO.email}`, rightMargin, 21, { align: 'right' });
 
     // Main Header Bar (Blue Theme)
-    const barY = Math.max(topY + 14, 26);
+    const barY = 31;
     const barHeight = 8;
 
-    doc.setDrawColor(2, 132, 199); // Sky-600 border
+    doc.setDrawColor(...borderColor);
     doc.setLineWidth(0.6);
     doc.rect(leftMargin, barY, contentWidth, barHeight);
 
@@ -519,7 +529,7 @@ export async function generateGSTInvoicePDF(
     doc.text(`GSTIN : ${SHOP_INFO.gstin}`, leftMargin + 3, barY + 5.5);
 
     doc.setFontSize(11);
-    doc.setTextColor(2, 132, 199);
+    doc.setTextColor(...headerAccent);
     doc.text('TAX INVOICE', leftMargin + 97.5, barY + 5.8, { align: 'center' });
 
     doc.setFontSize(8);
@@ -528,25 +538,25 @@ export async function generateGSTInvoicePDF(
 
     // Customer & Order Details Box
     const detailsY = barY + barHeight;
-    const detailsHeight = 34;
+    const detailsHeight = 38;
 
-    doc.setDrawColor(2, 132, 199);
+    doc.setDrawColor(...borderColor);
     doc.setLineWidth(0.5);
     doc.rect(leftMargin, detailsY, contentWidth, detailsHeight);
 
     // Center divider
-    const midX = leftMargin + 95;
+    const midX = leftMargin + 98;
     doc.line(midX, detailsY, midX, detailsY + detailsHeight);
 
     // Left Half: Customer Detail
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(8.5);
     doc.setTextColor(0, 0, 0);
     doc.text('Customer Detail', leftMargin + 35, detailsY + 4.5, { align: 'center' });
     doc.line(leftMargin, detailsY + 6, midX, detailsY + 6);
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.text('M/S', leftMargin + 3, detailsY + 10.5);
     doc.text('Address', leftMargin + 3, detailsY + 15);
     doc.text('Phone', leftMargin + 3, detailsY + 23);
@@ -574,7 +584,7 @@ export async function generateGSTInvoicePDF(
     // Row 1: Invoice No & Invoice Date
     doc.line(midX + 45, detailsY, midX + 45, detailsY + rowH);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.text('Invoice No.', midX + 3, detailsY + 7);
     doc.setFont('helvetica', 'normal');
     doc.text(invoiceNumber, midX + 22, detailsY + 7);
@@ -585,9 +595,9 @@ export async function generateGSTInvoicePDF(
     doc.text(formattedDate, midX + 72, detailsY + 7);
 
     // Row 2: Order Ref
-    const displayOrderRef = order.id.startsWith('SAPP')
+    const displayOrderRef = order.invoice_number || (order.id.startsWith('SAPP')
       ? order.id
-      : `#${order.id.slice(-8).toUpperCase()}`;
+      : `#${order.id.slice(-8).toUpperCase()}`);
     doc.setFont('helvetica', 'bold');
     doc.text('Order Ref', midX + 3, detailsY + rowH + 7);
     doc.setFont('helvetica', 'normal');
@@ -600,7 +610,7 @@ export async function generateGSTInvoicePDF(
     doc.text(transport, midX + 35, detailsY + rowH * 2 + 7);
 
     // Itemized GST Table
-    const tableStartY = detailsY + detailsHeight;
+    const tableStartY = detailsY + detailsHeight + 4;
 
     const tableHead = isTN
       ? [
@@ -752,23 +762,23 @@ export async function generateGSTInvoicePDF(
       headStyles: {
         fillColor: [255, 255, 255],
         textColor: [0, 0, 0],
-        lineColor: [2, 132, 199],
+        lineColor: borderColor,
         lineWidth: 0.4,
-        fontSize: 7,
+        fontSize: 8,
         fontStyle: 'bold',
         halign: 'center',
         valign: 'middle',
       },
       bodyStyles: {
-        fontSize: 7,
-        lineColor: [2, 132, 199],
+        fontSize: 8,
+        lineColor: borderColor,
         lineWidth: 0.3,
-        cellPadding: 2,
+        cellPadding: 2.5,
       },
       columnStyles: isTN
         ? {
             0: { cellWidth: 8, halign: 'center' },
-            1: { cellWidth: 'auto', halign: 'left' },
+            1: { cellWidth: 44, halign: 'left' },
             2: { cellWidth: 15, halign: 'center' },
             3: { cellWidth: 15, halign: 'center' },
             4: { cellWidth: 18, halign: 'right' },
@@ -781,7 +791,7 @@ export async function generateGSTInvoicePDF(
           }
         : {
             0: { cellWidth: 8, halign: 'center' },
-            1: { cellWidth: 'auto', halign: 'left' },
+          1: { cellWidth: 41, halign: 'left' },
             2: { cellWidth: 18, halign: 'center' },
             3: { cellWidth: 18, halign: 'center' },
             4: { cellWidth: 22, halign: 'right' },
@@ -790,40 +800,49 @@ export async function generateGSTInvoicePDF(
             7: { cellWidth: 22, halign: 'right' },
             8: { cellWidth: 25, halign: 'right' },
           },
-      margin: { left: leftMargin, right: 10 },
+      tableWidth: contentWidth,
+      margin: { left: leftMargin, right: 8 },
+      styles: {
+        overflow: 'linebreak',
+        cellWidth: 'wrap',
+        valign: 'middle',
+        halign: 'center',
+      },
     });
 
     const finalY = (doc as any).lastAutoTable.finalY;
 
     // Bottom Summary & Declaration Box
+    const summaryStartY = finalY + 5;
     const bottomBoxHeight = 78;
-    doc.setDrawColor(2, 132, 199);
+    doc.setDrawColor(...borderColor);
     doc.setLineWidth(0.5);
-    doc.rect(leftMargin, finalY, contentWidth, bottomBoxHeight);
+    doc.rect(leftMargin, summaryStartY, contentWidth, bottomBoxHeight);
 
     // Split Left and Right
     const summarySplitX = leftMargin + 115;
-    doc.line(summarySplitX, finalY, summarySplitX, finalY + bottomBoxHeight);
+    doc.line(summarySplitX, summaryStartY, summarySplitX, summaryStartY + bottomBoxHeight);
 
     // ── LEFT SIDE: Total in words, Bank Details, Terms ──
-    let leftY = finalY + 4;
+    let leftY = summaryStartY + 5;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8.5);
     doc.setTextColor(0, 0, 0);
     doc.text('Total in words', leftMargin + 2, leftY);
-    leftY += 4.5;
+    leftY += 5;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.text(numberToWordsINR(grandTotal), leftMargin + 2, leftY);
+    doc.setFontSize(8);
+    const amountWords = doc.splitTextToSize(numberToWordsINR(grandTotal), summarySplitX - leftMargin - 4);
+    doc.text(amountWords, leftMargin + 2, leftY);
 
     // Bank Details
-    leftY += 6;
+    leftY += amountWords.length * 4 + 5;
     doc.setDrawColor(220, 220, 220);
     doc.line(leftMargin + 2, leftY, summarySplitX - 2, leftY);
     leftY += 4;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.text('Name', leftMargin + 2, leftY);
     doc.setFont('helvetica', 'normal');
     doc.text(`: ${SHOP_INFO.bank.name}`, leftMargin + 22, leftY);
@@ -858,12 +877,12 @@ export async function generateGSTInvoicePDF(
     leftY += 4;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.text('Terms and Conditions', leftMargin + 2, leftY);
 
     leftY += 3.5;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(7.5);
     doc.setTextColor(60, 60, 60);
     doc.text('• Subject to Sivakasi Jurisdiction.', leftMargin + 2, leftY);
     leftY += 3;
@@ -874,9 +893,9 @@ export async function generateGSTInvoicePDF(
     doc.text('• Delivery Ex-Premises.', leftMargin + 2, leftY);
 
     // ── RIGHT SIDE: Tax Computation & Signatures ──
-    let rightY = finalY + 4;
+    let rightY = summaryStartY + 5;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
 
     doc.text('Taxable Amount', summarySplitX + 3, rightY);
@@ -902,7 +921,7 @@ export async function generateGSTInvoicePDF(
     rightY += 5;
 
     // Total Amount Box
-    doc.setDrawColor(2, 132, 199);
+    doc.setDrawColor(...borderColor);
     doc.line(summarySplitX, rightY - 1, rightMargin, rightY - 1);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);

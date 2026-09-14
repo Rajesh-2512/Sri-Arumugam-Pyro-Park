@@ -10,6 +10,7 @@ export interface SavedCustomerDetails {
 
 export interface CustomerOrderHistoryItem {
   id: string;
+  invoice_number?: string | null;
   date: string;
   total_amount: number;
   items_count: number;

@@ -19,6 +19,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  invoice_number?: string | null;
   customer_name: string;
   phone: string;
   address: string;

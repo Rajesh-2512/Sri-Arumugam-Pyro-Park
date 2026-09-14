@@ -3,6 +3,9 @@ import { formatCurrency } from '@/lib/utils';
 import { Package, ShoppingBag, FolderTree, Percent, TrendingUp, Clock, AlertTriangle, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function AdminDashboardPage() {
   const { count: productCount } = await adminSupabase.from('products').select('*', { count: 'exact', head: true });
   const { count: categoryCount } = await adminSupabase.from('categories').select('*', { count: 'exact', head: true });
@@ -203,7 +206,7 @@ export default async function AdminDashboardPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      #{order.id.split('-')[0].toUpperCase()}
+                      #{order.invoice_number || order.id.split('-')[0].toUpperCase()}
                     </span>
                     <span className="font-extrabold text-slate-900">{order.customer_name}</span>
                     <span className="text-slate-500">({order.phone})</span>

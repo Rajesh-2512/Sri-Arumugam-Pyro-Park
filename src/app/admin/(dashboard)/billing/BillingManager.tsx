@@ -58,6 +58,20 @@ interface HeldBill {
   paymentMode: 'cash' | 'upi' | 'card' | 'bank_transfer';
 }
 
+interface SavedOrderReceipt {
+  orderId: string;
+  invoiceNumber?: string;
+  date: string;
+  items: BillingOrderItem[];
+  customerName: string;
+  phone: string;
+  subtotal: number;
+  discount: number;
+  gstAmount: number;
+  grandTotal: number;
+  paymentMode: string;
+}
+
 export default function BillingManager({ products, giftBoxes }: BillingManagerProps) {
   // --- CATALOG & VIEW STATE ---
   const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>('all');
@@ -98,18 +112,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
 
   // --- THERMAL RECEIPT MODAL ---
   const [showThermalModal, setShowThermalModal] = useState(false);
-  const [lastSavedOrder, setLastSavedOrder] = useState<{
-    orderId: string;
-    date: string;
-    items: BillingOrderItem[];
-    customerName: string;
-    phone: string;
-    subtotal: number;
-    discount: number;
-    gstAmount: number;
-    grandTotal: number;
-    paymentMode: string;
-  } | null>(null);
+  const [lastSavedOrder, setLastSavedOrder] = useState<SavedOrderReceipt | null>(null);
 
   // --- STATUS STATE ---
   const [submitting, setSubmitting] = useState(false);
@@ -303,7 +306,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
   };
 
   // PDF Generation Function
-  const generatePdfInvoice = async (orderId: string, createdAtDate?: string) => {
+  const generatePdfInvoice = async (orderId: string, createdAtDate?: string, invoiceNumber?: string) => {
     const paidVal = paidAmountInput ? parseFloat(paidAmountInput) : grandTotal;
     const remVal = Math.max(0, grandTotal - paidVal);
 
@@ -311,6 +314,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
       await generateGSTInvoicePDF(
         {
           id: orderId,
+          invoice_number: invoiceNumber,
           customer_name: customerName,
           phone,
           address: address || 'In-Store Counter Buyer',
@@ -329,7 +333,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
         },
         true,
         {
-          billNumber: `GST-${orderId.slice(-8).toUpperCase()}`,
+          billNumber: invoiceNumber ? `GST-${invoiceNumber}` : `GST-${orderId.slice(-8).toUpperCase()}`,
           customerName: customerName,
           phone,
           address: address || 'In-Store Counter',
@@ -346,6 +350,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
     } else {
       await generateInvoicePDF({
         id: orderId,
+        invoice_number: invoiceNumber,
         customer_name: customerName,
         phone,
         address: address || 'In-Store Counter Buyer',
@@ -402,11 +407,13 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
 
     if (res.success && res.orderId) {
       const orderIdStr = res.orderId;
+      const invoiceNumber = res.invoiceNumber || orderIdStr;
       const orderDateStr = res.createdAt || new Date().toISOString();
 
       // Save for Thermal Receipt View Modal
       setLastSavedOrder({
         orderId: orderIdStr,
+        invoiceNumber,
         date: new Date(orderDateStr).toLocaleString('en-IN'),
         items: [...lineItems],
         customerName,
@@ -418,10 +425,10 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
         paymentMode,
       });
 
-      setMessage({ type: 'success', text: `Invoice #${orderIdStr.slice(-8).toUpperCase()} created & saved successfully!` });
+      setMessage({ type: 'success', text: `${invoiceNumber} created & saved successfully!` });
       
       // Auto-trigger PDF invoice download
-      generatePdfInvoice(orderIdStr, orderDateStr);
+      generatePdfInvoice(orderIdStr, orderDateStr, invoiceNumber);
 
       // Reset Form State & Close Checkout Page
       setLineItems([]);
@@ -1570,7 +1577,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => generatePdfInvoice(lastSavedOrder.orderId)}
+                  onClick={() => generatePdfInvoice(lastSavedOrder.orderId, undefined, lastSavedOrder.invoiceNumber)}
                   className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer className="w-4 h-4 text-amber-600" /> PDF

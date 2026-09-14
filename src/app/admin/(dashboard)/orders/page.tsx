@@ -2,6 +2,9 @@ import { adminSupabase } from '@/lib/supabase/admin';
 import OrderManager from './OrderManager';
 import type { Order } from '@/types/order';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function AdminOrdersPage() {
   const { data: ordersData } = await adminSupabase
     .from('orders')

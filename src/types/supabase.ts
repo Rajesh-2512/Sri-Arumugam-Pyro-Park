@@ -156,6 +156,7 @@ export interface Database {
       orders: {
         Row: {
           id: string;
+          invoice_number: string | null;
           customer_name: string;
           phone: string;
           address: string;
@@ -172,6 +173,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          invoice_number?: string | null;
           customer_name: string;
           phone: string;
           address: string;
@@ -188,6 +190,7 @@ export interface Database {
         };
         Update: {
           id?: string;
+          invoice_number?: string | null;
           customer_name?: string;
           phone?: string;
           address?: string;

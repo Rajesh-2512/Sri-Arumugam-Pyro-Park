@@ -32,7 +32,7 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
 
-  const shortId = order.id.slice(-6).toUpperCase();
+  const shortId = order.invoice_number || order.id.slice(-6).toUpperCase();
   const formattedDate = new Date(order.created_at).toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',

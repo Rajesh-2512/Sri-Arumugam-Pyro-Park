@@ -149,6 +149,7 @@ export default function CheckoutClient({ isShopOpen = true }: { isShopOpen?: boo
         // Save to order history cookie
         addOrderToHistoryCookie({
           id: result.orderId,
+          invoice_number: result.invoiceNumber,
           date: new Date().toISOString(),
           total_amount: totalAmount,
           items_count: items.reduce((sum, i) => sum + i.quantity, 0),

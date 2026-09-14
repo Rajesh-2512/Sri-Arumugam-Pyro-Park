@@ -2,6 +2,7 @@
 
 import { adminSupabase } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { getNextInvoiceNumber } from './order.actions';
 
 export interface BillingOrderItem {
   id: string;
@@ -40,6 +41,7 @@ export async function createAdminBillingOrder(input: CreateBillingInput) {
   const notesText = `[POS BILLING] Payment: ${input.payment_mode.toUpperCase()}${input.aadhar_pan ? ` | Aadhar/PAN: ${input.aadhar_pan}` : ''}${input.gstin ? ` | Buyer GSTIN: ${input.gstin}` : ''}${remVal > 0 ? ` | Paid: ₹${paidVal} (Remaining: ₹${remVal})` : ''}${input.notes ? ` | ${input.notes}` : ''}`;
 
   const insertPayload: any = {
+    invoice_number: await getNextInvoiceNumber(),
     customer_name: input.customer_name,
     phone: input.phone,
     address: input.address || 'In-Store Counter Buyer',
@@ -61,7 +63,7 @@ export async function createAdminBillingOrder(input: CreateBillingInput) {
   const res1 = await adminSupabase
     .from('orders')
     .insert(insertPayload)
-    .select('id, created_at')
+    .select('id, invoice_number, created_at')
     .single();
 
   if (res1.error) {
@@ -72,7 +74,7 @@ export async function createAdminBillingOrder(input: CreateBillingInput) {
     const res2 = await adminSupabase
       .from('orders')
       .insert(insertPayload)
-      .select('id, created_at')
+      .select('id, invoice_number, created_at')
       .single();
 
     order = res2.data;
@@ -122,5 +124,5 @@ export async function createAdminBillingOrder(input: CreateBillingInput) {
   }
 
   revalidatePath('/admin/orders');
-  return { success: true, orderId: order.id, createdAt: order.created_at };
+  return { success: true, orderId: order.id, invoiceNumber: order.invoice_number, createdAt: order.created_at };
 }

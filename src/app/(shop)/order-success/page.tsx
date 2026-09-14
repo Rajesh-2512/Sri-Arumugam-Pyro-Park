@@ -25,7 +25,7 @@ export default async function OrderSuccessPage({ searchParams }: Props) {
     }
   }
 
-  const shortId = orderId ? orderId.split('-')[0].toUpperCase() : 'N/A';
+  const shortId = order?.invoice_number || (orderId ? orderId.split('-')[0].toUpperCase() : 'N/A');
 
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 selection:bg-amber-500 selection:text-white">

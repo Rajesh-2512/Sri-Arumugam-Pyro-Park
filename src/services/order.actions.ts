@@ -23,6 +23,14 @@ const orderSchema = z.object({
 
 type PlaceOrderInput = z.infer<typeof orderSchema>;
 
+export async function getNextInvoiceNumber(): Promise<string> {
+  const { data, error } = await (adminSupabase as any).rpc('next_invoice_number');
+  if (error || !data) {
+    throw new Error(error?.message || 'Failed to generate invoice number');
+  }
+  return String(data);
+}
+
 export async function placeOrder(input: PlaceOrderInput) {
   const parsed = orderSchema.safeParse(input);
   if (!parsed.success) {
@@ -75,6 +83,7 @@ export async function placeOrder(input: PlaceOrderInput) {
 
   // Insert main order
   const insertPayload: any = {
+    invoice_number: await getNextInvoiceNumber(),
     customer_name: orderData.customer_name,
     phone: orderData.phone,
     address: orderData.address,
@@ -101,7 +110,7 @@ export async function placeOrder(input: PlaceOrderInput) {
   const res1 = await adminSupabase
     .from('orders')
     .insert(insertPayload)
-    .select('id')
+    .select('id, invoice_number')
     .single();
 
   if (res1.error) {
@@ -113,7 +122,7 @@ export async function placeOrder(input: PlaceOrderInput) {
     const res2 = await adminSupabase
       .from('orders')
       .insert(insertPayload)
-      .select('id')
+      .select('id, invoice_number')
       .single();
 
     order = res2.data;
@@ -180,7 +189,7 @@ export async function placeOrder(input: PlaceOrderInput) {
     items: items,
   }).catch((err) => console.error('[EMAIL ERROR] Failed to dispatch order email:', err));
 
-  return { success: true, orderId: order.id };
+  return { success: true, orderId: order.id, invoiceNumber: order.invoice_number };
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {

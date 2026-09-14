@@ -496,7 +496,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
             <tbody className="divide-y divide-slate-100">
               {filteredOrders.length > 0 ? (
                 filteredOrders.map((order) => {
-                  const shortId = order.id.split('-')[0].toUpperCase();
+                  const shortId = order.invoice_number || order.id.split('-')[0].toUpperCase();
                   const totalItemsCount = (order.order_items && order.order_items.length > 0)
                     ? order.order_items.reduce((sum, item) => sum + item.quantity, 0)
                     : 1;
@@ -781,7 +781,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 </div>
                 <div>
                   <h3 className="font-black text-lg text-slate-900">Update Order Payment</h3>
-                  <p className="text-xs text-slate-500 font-medium">Order #{paymentModalOrder.id.split('-')[0].toUpperCase()}</p>
+                  <p className="text-xs text-slate-500 font-medium">Order #{paymentModalOrder.invoice_number || paymentModalOrder.id.split('-')[0].toUpperCase()}</p>
                 </div>
               </div>
               <button
@@ -894,7 +894,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                   <div>
                     <h3 className="font-black text-xl text-slate-900">Generate GST Tax Invoice & Audit Bill</h3>
                     <p className="text-xs text-slate-500 font-medium">
-                      Order #{gstModalOrder.id.split('-')[0].toUpperCase()} • Enter custom amount for GST tax invoice
+                      Order #{gstModalOrder.invoice_number || gstModalOrder.id.split('-')[0].toUpperCase()} • Enter custom amount for GST tax invoice
                     </p>
                   </div>
                 </div>
