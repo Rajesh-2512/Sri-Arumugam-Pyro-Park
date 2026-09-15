@@ -21,10 +21,9 @@ export const dynamic = 'force-dynamic';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://sriarumugampyropark.com';
 
 export const metadata: Metadata = {
-  title:
-    'Sri Arumugam Pyro Park | Buy Sivakasi Crackers Online | Diwali Fireworks Direct Factory Outlet',
+  title: 'Sri Arumugam Pyro Park | Sivakasi Crackers Shop | Wholesale Crackers',
   description:
-    'Buy Sivakasi Diwali crackers & fireworks online at Sri Arumugam Pyro Park — direct factory outlet prices. Sparklers, flower pots, fancy crackers, sound crackers, rockets, bombs, gift boxes. Wholesale & retail. WhatsApp: 8682913516. Free transport across India.',
+    'Shop Sri Arumugam Pyro Park for premium fireworks in Sivakasi. Explore our wide range of crackers, gift boxes, sparklers, flower pots, fancy crackers, rockets, and wholesale products. Use Quick Purchase for fast enquiry and order details.',
   keywords: [
     'sivakasi crackers',
     'sivakasi crackers online',
@@ -52,9 +51,9 @@ export const metadata: Metadata = {
     canonical: SITE_URL,
   },
   openGraph: {
-    title: 'Sri Arumugam Pyro Park | Buy Sivakasi Diwali Crackers Online at Factory Outlet Prices',
+    title: 'Sri Arumugam Pyro Park | Sivakasi Crackers Shop | Wholesale Crackers',
     description:
-      'Direct factory outlet for Sivakasi Diwali crackers & fireworks. Buy sparklers, flower pots, fancy crackers, sound crackers, rockets, gift boxes & more online at wholesale prices.',
+      'Premium Sivakasi crackers, fireworks, gift boxes, and wholesale products. Browse the catalog or use Quick Purchase for a fast enquiry.',
     url: SITE_URL,
     images: [{ url: '/banner-main.png', width: 1200, height: 630, alt: 'Sri Arumugam Pyro Park — Sivakasi Diwali Crackers' }],
   },
