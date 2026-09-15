@@ -5,7 +5,7 @@ import ProductCard from '@/components/shop/ProductCard';
 import QuickPurchaseTable from '@/components/shop/QuickPurchaseTable';
 import CategoryFilter from '@/components/shop/CategoryFilter';
 import type { Product, Category } from '@/types/product';
-import { Flame, LayoutGrid, Table, Sparkles } from 'lucide-react';
+import { Flame, LayoutGrid, Table } from 'lucide-react';
 
 interface Props {
   products: Product[];
@@ -17,6 +17,18 @@ interface Props {
 export default function ProductCatalogView({ products, categories, activeCategory, globalDiscount }: Props) {
   // Default to Wholesale Table View for fast Sivakasi crackers bulk ordering!
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const groupedProducts = products.reduce<Array<{ name: string; products: Product[] }>>((groups, product) => {
+    const categoryName = product.categories?.name || 'Crackers';
+    const group = groups.find((item) => item.name === categoryName);
+
+    if (group) {
+      group.products.push(product);
+    } else {
+      groups.push({ name: categoryName, products: [product] });
+    }
+
+    return groups;
+  }, []);
 
   return (
     <section className="space-y-6 pt-4" id="product-list">
@@ -72,13 +84,22 @@ export default function ProductCatalogView({ products, categories, activeCategor
         viewMode === 'table' ? (
           <QuickPurchaseTable products={products} globalDiscount={globalDiscount} />
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                globalDiscount={globalDiscount}
-              />
+          <div className="space-y-8">
+            {groupedProducts.map((group) => (
+              <div key={group.name} className="space-y-4">
+                <h3 className="bg-amber-100 text-amber-900 border border-amber-200 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider">
+                  {group.name}
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {group.products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      globalDiscount={globalDiscount}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )

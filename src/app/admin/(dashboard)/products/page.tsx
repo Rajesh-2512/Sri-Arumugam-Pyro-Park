@@ -9,7 +9,7 @@ export default async function AdminProductsPage() {
   const { data: productsData } = await adminSupabase
     .from('products')
     .select('*, categories(name)')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: true });
 
   const { data: categoriesData } = await adminSupabase
     .from('categories')

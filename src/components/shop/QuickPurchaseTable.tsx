@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import Link from 'next/link';
 import { formatCurrency, getProductImage } from '@/lib/utils';
 import { calculateFinalPrice, getEffectiveDiscountPercentage } from '@/lib/discount';
@@ -8,7 +8,7 @@ import { useCartStore } from '@/store/cart.store';
 import type { Product } from '@/types/product';
 import ProductDetailsModal from '@/components/shop/ProductDetailsModal';
 import SafeProductImage from '@/components/shop/SafeProductImage';
-import { ShoppingCart, Flame, Plus, Minus, Search, ArrowRight, Eye, Check } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, ArrowRight, Eye } from 'lucide-react';
 
 interface Props {
   products: Product[];
@@ -29,6 +29,19 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (p.categories?.name && p.categories.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const groupedProducts = filteredProducts.reduce<Array<{ name: string; products: Product[] }>>((groups, product) => {
+    const categoryName = product.categories?.name || 'Crackers';
+    const group = groups.find((item) => item.name === categoryName);
+
+    if (group) {
+      group.products.push(product);
+    } else {
+      groups.push({ name: categoryName, products: [product] });
+    }
+
+    return groups;
+  }, []);
 
   return (
     <div className="space-y-5">
@@ -53,7 +66,12 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
       {/* MOBILE ADAPTIVE VIEW (< md screens) */}
       <div className="block md:hidden space-y-3">
         {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => {
+          groupedProducts.map((group) => (
+            <div key={group.name} className="space-y-3">
+              <h3 className="bg-amber-100 text-amber-900 border border-amber-200 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider">
+                {group.name}
+              </h3>
+              {group.products.map((product) => {
             const finalPrice = calculateFinalPrice(product.price, product.discount, globalDiscount);
             const effectiveDiscount = getEffectiveDiscountPercentage(product.discount, globalDiscount);
             const cartItem = cartItems.find((item) => item.id === product.id);
@@ -80,7 +98,7 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
               }
             };
 
-            return (
+              return (
               <div
                 key={product.id}
                 className={`bg-white rounded-2xl p-4 border transition-all duration-200 shadow-xs space-y-3 ${
@@ -193,8 +211,10 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
                 </div>
 
               </div>
-            );
-          })
+                );
+              })}
+            </div>
+          ))
         ) : (
           <div className="bg-white p-8 text-center text-slate-400 font-medium rounded-2xl border border-slate-200">
             No crackers found matching search.
@@ -220,7 +240,14 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => {
+                groupedProducts.map((group) => (
+                  <Fragment key={group.name}>
+                    <tr key={`${group.name}-heading`}>
+                      <td colSpan={7} className="bg-amber-100 text-amber-900 border-y border-amber-200 px-6 py-2.5 text-xs font-black uppercase tracking-wider">
+                        {group.name}
+                      </td>
+                    </tr>
+                    {group.products.map((product) => {
                   const finalPrice = calculateFinalPrice(product.price, product.discount, globalDiscount);
                   const effectiveDiscount = getEffectiveDiscountPercentage(product.discount, globalDiscount);
                   const cartItem = cartItems.find((item) => item.id === product.id);
@@ -247,7 +274,7 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
                     }
                   };
 
-                  return (
+                    return (
                     <tr
                       key={product.id}
                       className={`hover:bg-amber-50/50 transition-colors ${
@@ -360,8 +387,10 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
                         )}
                       </td>
                     </tr>
-                  );
-                })
+                    );
+                  })}
+                  </Fragment>
+                ))
               ) : (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">

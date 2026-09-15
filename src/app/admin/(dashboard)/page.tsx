@@ -2,6 +2,7 @@ import { adminSupabase } from '@/lib/supabase/admin';
 import { formatCurrency } from '@/lib/utils';
 import { Package, ShoppingBag, FolderTree, Percent, TrendingUp, Clock, AlertTriangle, CreditCard } from 'lucide-react';
 import Link from 'next/link';
+import type { Product } from '@/types/product';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

@@ -118,7 +118,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     .from('products')
     .select('*, categories(id, name)')
     .eq('is_active', true)
-    .order('created_at', { ascending: false });
+  .order('created_at', { ascending: true });
 
   if (category) {
     query = query.eq('category_id', category);
