@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 interface OrderItem {
   name?: string;
@@ -22,31 +22,6 @@ interface OrderEmailInput {
   notes?: string;
   items: OrderItem[];
   createdAt?: string;
-}
-
-/**
- * Creates Nodemailer Transporter using environment variables.
- * Defaults to Gmail SMTP (smtp.gmail.com) on port 465 SSL.
- */
-function createTransporter() {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.SMTP_PORT || '465', 10);
-  const secure = process.env.SMTP_SECURE !== 'false' && (port === 465);
-  const user = process.env.SMTP_USER || 'sriarumugampyropark.svks@gmail.com';
-  const pass = process.env.SMTP_PASS || '';
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: {
-      user,
-      pass,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  });
 }
 
 /**
@@ -219,30 +194,35 @@ function buildOrderEmailHtml(data: OrderEmailInput): string {
  */
 export async function sendOrderNotificationEmail(data: OrderEmailInput): Promise<{ success: boolean; error?: string }> {
   try {
-    const targetEmail = process.env.NOTIFICATION_EMAIL || 'sriarumugampyropark.svks@gmail.com';
-    const senderUser = process.env.SMTP_USER || 'sriarumugampyropark.svks@gmail.com';
-    const pass = process.env.SMTP_PASS;
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const targetEmail = (process.env.NOTIFICATION_EMAIL || 'sriarumugampyropark.svks@gmail.com').trim();
+    const senderEmail = (process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev').trim();
 
-    if (!pass) {
-      console.warn('[EMAIL WARNING] SMTP_PASS not configured in environment variables. Email notification skipped.');
-      return { success: false, error: 'SMTP_PASS not configured' };
+    if (!apiKey) {
+      console.warn('[EMAIL WARNING] RESEND_API_KEY is not configured. Email notification skipped.');
+      return { success: false, error: 'RESEND_API_KEY not configured' };
     }
-
-    const transporter = createTransporter();
+    const resend = new Resend(apiKey);
     const shortId = data.orderId.slice(0, 8).toUpperCase();
     const htmlContent = buildOrderEmailHtml(data);
 
-    const info = await transporter.sendMail({
-      from: `"Sri Arumugam Pyro Park" <${senderUser}>`,
-      to: targetEmail,
-      subject: `💥 New Order #${shortId} Received - ₹${data.totalAmount.toLocaleString('en-IN')} (${data.customerName})`,
+    const { data: email, error } = await resend.emails.send({
+      from: `Sri Arumugam Pyro Park <${senderEmail}>`,
+      to: [targetEmail],
+      subject: `New Order #${shortId} Received - Rs. ${data.totalAmount.toLocaleString('en-IN')} (${data.customerName})`,
       html: htmlContent,
     });
 
-    console.log('[EMAIL SUCCESS] Order email sent to %s (Message ID: %s)', targetEmail, info.messageId);
+    if (error) {
+      console.error('[EMAIL ERROR] Resend rejected the message:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    console.log('[EMAIL SUCCESS] Resend email sent to %s (Message ID: %s)', targetEmail, email?.id);
     return { success: true };
-  } catch (error: any) {
-    console.error('[EMAIL ERROR] Failed to send order notification email:', error?.message || error);
-    return { success: false, error: error?.message || 'Email dispatch failed' };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Email dispatch failed';
+    console.error('[EMAIL ERROR] Failed to send order notification email:', message);
+    return { success: false, error: message };
   }
 }
