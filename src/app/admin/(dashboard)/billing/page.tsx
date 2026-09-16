@@ -1,7 +1,6 @@
 import { adminSupabase } from '@/lib/supabase/admin';
 import BillingManager from './BillingManager';
-import { getGiftBoxes } from '@/services/giftbox.actions';
-import type { Product } from '@/types/product';
+import type { WalkInProduct } from '@/types/product';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -12,15 +11,12 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminBillingPage() {
-  const { data: productsData } = await adminSupabase
-    .from('products')
-    .select('*, categories(name)')
+  const { data: walkInProductsData } = await adminSupabase
+    .from('walk_in_products')
+    .select('*, categories(id, name)')
     .order('name');
 
-  const giftBoxRes = await getGiftBoxes();
+  const walkInProducts = (walkInProductsData ?? []) as unknown as WalkInProduct[];
 
-  const products = (productsData ?? []) as unknown as Product[];
-  const giftBoxes = giftBoxRes.data || [];
-
-  return <BillingManager products={products} giftBoxes={giftBoxes} />;
+  return <BillingManager products={[]} giftBoxes={[]} walkInProducts={walkInProducts} />;
 }

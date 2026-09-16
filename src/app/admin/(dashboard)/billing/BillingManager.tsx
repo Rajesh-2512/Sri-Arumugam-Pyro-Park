@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Product } from '@/types/product';
+import { Product, WalkInProduct } from '@/types/product';
 import { GiftBox } from '@/types/giftbox';
 import { formatCurrency, getProductImage } from '@/lib/utils';
 import SafeProductImage from '@/components/shop/SafeProductImage';
@@ -44,6 +44,7 @@ import { generateInvoicePDF, generateGSTInvoicePDF } from '@/lib/invoicePdfGener
 interface BillingManagerProps {
   products: Product[];
   giftBoxes: GiftBox[];
+  walkInProducts: WalkInProduct[];
 }
 
 interface HeldBill {
@@ -72,7 +73,7 @@ interface SavedOrderReceipt {
   paymentMode: string;
 }
 
-export default function BillingManager({ products, giftBoxes }: BillingManagerProps) {
+export default function BillingManager({ products, giftBoxes, walkInProducts }: BillingManagerProps) {
   // --- CATALOG & VIEW STATE ---
   const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -169,7 +170,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
   const filteredProducts = products.filter((p) => {
     if (!p.is_active) return false;
     const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase());
-    if (selectedCategoryTab === 'giftboxes') return false;
+    if (selectedCategoryTab === 'giftboxes' || selectedCategoryTab === 'walkin') return false;
     if (selectedCategoryTab === 'all') return matchesSearch;
     return matchesSearch && p.category_id === selectedCategoryTab;
   });
@@ -179,6 +180,12 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
     const matchesSearch = g.name.toLowerCase().includes(productSearch.toLowerCase());
     if (selectedCategoryTab === 'all' || selectedCategoryTab === 'giftboxes') return matchesSearch;
     return false;
+  });
+
+  const filteredWalkInProducts = walkInProducts.filter((product) => {
+    if (!product.is_active) return false;
+    if (selectedCategoryTab !== 'all' && selectedCategoryTab !== 'walkin') return false;
+    return product.name.toLowerCase().includes(productSearch.toLowerCase());
   });
 
   // Cart Helper Functions
@@ -227,6 +234,10 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
     setCustomItemName('');
     setCustomItemPrice('');
     setShowCustomItemForm(false);
+  };
+
+  const addWalkInProduct = (product: WalkInProduct) => {
+    addItem(`walkin_${product.id}`, product.name, product.price, product.discount, getProductImage(product.image_url));
   };
 
   const clearCart = () => {
@@ -339,7 +350,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
           address: address || 'In-Store Counter',
           city: city || 'Sivakasi',
           pincode: pincode || '626123',
-          gstinAadhar: gstin || aadharPan || null,
+          gstinAadhar: aadharPan || gstin || null,
           totalAmount: grandTotal,
           taxableAmount: discountedSubtotal,
           gstAmount,
@@ -1023,7 +1034,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/80'
                   }`}
                 >
-                  All Products ({products.length + giftBoxes.length})
+                  All Products ({walkInProducts.length})
                 </button>
 
                 {giftBoxes.length > 0 && (
@@ -1134,8 +1145,72 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
                 </div>
               )}
 
-              {/* Single Crackers Catalog Section */}
-              <div className="space-y-3">
+              {/* Product Catalog Section */}
+              {filteredWalkInProducts.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                      <Package className="w-4 h-4 text-emerald-600" /> Crackers Catalog ({filteredWalkInProducts.length})
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {filteredWalkInProducts.map((product) => {
+                      const itemId = `walkin_${product.id}`;
+                      const qtyInCart = getItemQuantity(itemId);
+                      return (
+                        <div
+                          key={product.id}
+                          className={`p-3 rounded-2xl border-2 transition-all flex flex-col justify-between space-y-3 ${
+                            qtyInCart > 0
+                              ? 'bg-emerald-50/90 border-emerald-500 shadow-sm'
+                              : 'bg-white border-emerald-100 hover:border-emerald-300 shadow-2xs'
+                          }`}
+                        >
+                          <div className="relative w-full h-24 rounded-xl bg-slate-100 border border-slate-200/80 overflow-hidden flex items-center justify-center">
+                            <SafeProductImage
+                              src={getProductImage(product.image_url) || '/images/cracker_placeholder.png'}
+                              alt={product.name}
+                              fill
+                              sizes="(max-width: 768px) 50vw, 33vw"
+                              className="object-cover block"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <span className="font-extrabold text-slate-900 text-xs block line-clamp-2">{product.name}</span>
+                            <span className="text-[10px] text-slate-500 block">{product.categories?.name || 'Uncategorized'}</span>
+                            {product.description && (
+                              <span className="text-[10px] text-slate-500 block line-clamp-2">{product.description}</span>
+                            )}
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="font-black text-emerald-600 text-sm">{formatCurrency(product.price * (1 - (product.discount || 0) / 100))}</span>
+                              {product.discount > 0 && <span className="text-[10px] text-slate-400 line-through">{formatCurrency(product.price)}</span>}
+                            </div>
+                            <span className={`text-[10px] font-bold ${product.stock < 20 ? 'text-rose-600' : 'text-slate-400'}`}>{product.stock} units available</span>
+                          </div>
+                          {qtyInCart > 0 ? (
+                            <div className="flex items-center justify-between bg-white px-2 py-1 rounded-xl border border-emerald-300 shadow-2xs">
+                              <button onClick={() => updateQuantity(itemId, qtyInCart - 1)} className="w-7 h-7 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black cursor-pointer">-</button>
+                              <span className="font-black text-xs text-slate-900">{qtyInCart} in Cart</span>
+                              <button onClick={() => updateQuantity(itemId, qtyInCart + 1)} className="w-7 h-7 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black cursor-pointer">+</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => addWalkInProduct(product)}
+                              className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Plus className="w-4 h-4" /> Add
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Online product catalog is not loaded on this POS page. */}
+              {products.length > 0 && <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                     <Package className="w-4 h-4 text-orange-600" /> Crackers Catalog ({filteredProducts.length})
@@ -1294,7 +1369,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
                     })}
                   </div>
                 )}
-              </div>
+              </div>}
 
             </div>
 

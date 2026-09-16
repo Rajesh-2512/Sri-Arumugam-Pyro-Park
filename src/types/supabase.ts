@@ -75,6 +75,48 @@ export interface Database {
         };
         Relationships: [];
       };
+      walk_in_products: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          price: number;
+          category_id: string | null;
+          image_url: Json;
+          stock: number;
+          discount: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          price: number;
+          category_id?: string | null;
+          image_url?: Json;
+          stock?: number;
+          discount?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          price?: number;
+          category_id?: string | null;
+          image_url?: Json;
+          stock?: number;
+          discount?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       global_settings: {
         Row: {
           id: string;

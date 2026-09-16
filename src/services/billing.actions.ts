@@ -88,19 +88,32 @@ export async function createAdminBillingOrder(input: CreateBillingInput) {
     return { success: false, error: orderError?.message || 'Failed to create order' };
   }
 
+  const walkInIds = input.items
+    .map((item: BillingOrderItem) => item.id.startsWith('walkin_') ? item.id.slice(7) : null)
+    .filter((id): id is string => Boolean(id));
+  const { data: walkInProducts } = walkInIds.length > 0
+    ? await adminSupabase.from('walk_in_products').select('id, name, price, discount').in('id', walkInIds)
+    : { data: [] };
+  const walkInPriceById = new Map((walkInProducts ?? []).map((product) => [product.id, product]));
+
   // Fetch all existing product IDs to prevent foreign key errors for combo boxes or custom items
   const { data: existingProducts } = await adminSupabase.from('products').select('id');
   const validProductIds = new Set(existingProducts?.map((p) => p.id) || []);
 
   const orderItemsData = input.items.map((i: any) => {
-    const itemPrice = typeof i.finalPrice === 'number' && !isNaN(i.finalPrice)
+    const walkInProduct = i.id.startsWith('walkin_')
+      ? walkInPriceById.get(i.id.slice(7))
+      : null;
+    const itemPrice = walkInProduct
+      ? Number(walkInProduct.price) * (1 - Number(walkInProduct.discount || 0) / 100)
+      : typeof i.finalPrice === 'number' && !isNaN(i.finalPrice)
       ? i.finalPrice
       : (typeof i.price === 'number' && !isNaN(i.price) ? i.price : 0);
 
     return {
       order_id: order.id,
       product_id: validProductIds.has(i.id) ? i.id : null,
-      product_name: String(i.name || i.product_name || 'POS Cracker Item'),
+      product_name: String(walkInProduct?.name || i.name || i.product_name || 'POS Cracker Item'),
       price: Number(itemPrice),
       quantity: Math.max(1, Number(i.quantity || 1)),
     };

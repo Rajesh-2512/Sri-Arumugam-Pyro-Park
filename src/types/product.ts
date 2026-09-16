@@ -21,6 +21,21 @@ export interface Product {
   categories?: Category | null;
 }
 
+export interface WalkInProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  category_id: string | null;
+  image_url: string | string[] | null;
+  stock: number;
+  discount: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  categories?: Category | null;
+}
+
 export interface GlobalSettings {
   id: string;
   shop_name: string;

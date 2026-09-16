@@ -560,7 +560,7 @@ export async function generateGSTInvoicePDF(
     doc.text('M/S', leftMargin + 3, detailsY + 10.5);
     doc.text('Address', leftMargin + 3, detailsY + 15);
     doc.text('Phone', leftMargin + 3, detailsY + 23);
-    doc.text('GSTIN', leftMargin + 3, detailsY + 27);
+    doc.text('Aadhar / PAN', leftMargin + 3, detailsY + 27);
     doc.text('Place of Supply', leftMargin + 3, detailsY + 31);
 
     doc.setFont('helvetica', 'normal');

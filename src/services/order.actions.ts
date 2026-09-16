@@ -173,8 +173,8 @@ export async function placeOrder(input: PlaceOrderInput) {
 
   revalidatePath('/admin/orders');
 
-  // Asynchronously trigger email notification to sriarumugampyropark.svks@gmail.com
-  sendOrderNotificationEmail({
+  // Wait for the notification before returning so serverless runtimes do not terminate the SMTP request.
+  const emailResult = await sendOrderNotificationEmail({
     orderId: order.id,
     customerName: orderData.customer_name,
     phone: orderData.phone,
@@ -187,9 +187,18 @@ export async function placeOrder(input: PlaceOrderInput) {
     paidAmount: orderData.paid_amount,
     notes: orderData.notes,
     items: items,
-  }).catch((err) => console.error('[EMAIL ERROR] Failed to dispatch order email:', err));
+  });
 
-  return { success: true, orderId: order.id, invoiceNumber: order.invoice_number };
+  if (!emailResult.success) {
+    console.error('[EMAIL ERROR] Order notification was not sent:', emailResult.error);
+  }
+
+  return {
+    success: true,
+    orderId: order.id,
+    invoiceNumber: order.invoice_number,
+    emailSent: emailResult.success,
+  };
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
