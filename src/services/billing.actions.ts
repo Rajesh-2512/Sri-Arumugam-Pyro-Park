@@ -139,3 +139,58 @@ export async function createAdminBillingOrder(input: CreateBillingInput) {
   revalidatePath('/admin/orders');
   return { success: true, orderId: order.id, invoiceNumber: order.invoice_number, createdAt: order.created_at };
 }
+
+export async function updateAdminBillingOrder(input: {
+  orderId: string;
+  totalAmount: number;
+  paidAmount: number;
+  items: BillingOrderItem[];
+}) {
+  if (!input.orderId || input.items.length === 0) {
+    return { success: false, error: 'Order ID and at least one item are required.' };
+  }
+
+  const remainingAmount = Math.max(0, input.totalAmount - input.paidAmount);
+  const { error: orderError } = await adminSupabase
+    .from('orders')
+    .update({
+      total_amount: input.totalAmount,
+      paid_amount: input.paidAmount,
+      remaining_amount: remainingAmount,
+    })
+    .eq('id', input.orderId);
+
+  if (orderError) {
+    console.error('Error updating billing order:', orderError);
+    return { success: false, error: orderError.message };
+  }
+
+  const { error: deleteError } = await adminSupabase
+    .from('order_items')
+    .delete()
+    .eq('order_id', input.orderId);
+
+  if (deleteError) {
+    console.error('Error replacing billing order items:', deleteError);
+    return { success: false, error: deleteError.message };
+  }
+
+  const { data: existingProducts } = await adminSupabase.from('products').select('id');
+  const validProductIds = new Set(existingProducts?.map((product) => product.id) || []);
+  const orderItems = input.items.map((item) => ({
+    order_id: input.orderId,
+    product_id: validProductIds.has(item.id) ? item.id : null,
+    product_name: item.name,
+    price: item.finalPrice,
+    quantity: Math.max(1, item.quantity),
+  }));
+
+  const { error: itemsError } = await adminSupabase.from('order_items').insert(orderItems);
+  if (itemsError) {
+    console.error('Error inserting updated billing order items:', itemsError);
+    return { success: false, error: itemsError.message };
+  }
+
+  revalidatePath('/admin/orders');
+  return { success: true };
+}

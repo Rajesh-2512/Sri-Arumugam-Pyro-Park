@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import { CheckCircle2, ArrowLeft, Sparkles, FileText, Flame, PartyPopper } from 'lucide-react';
 import { getOrderById } from '@/services/order.actions';
 import OrderInvoicePDF from '@/components/shop/OrderInvoicePDF';
+import PaymentInfoClient from '@/app/(shop)/payment-info/PaymentInfoClient';
+import type { Order } from '@/types/order';
 
 export const metadata: Metadata = {
   title: 'Order Confirmed - Official Invoice',
@@ -17,11 +19,11 @@ export default async function OrderSuccessPage({ searchParams }: Props) {
   const resolvedParams = await searchParams;
   const orderId = resolvedParams?.id || '';
   
-  let order = null;
+  let order: Order | null = null;
   if (orderId) {
     const res = await getOrderById(orderId);
     if (res.success && res.data) {
-      order = res.data;
+      order = res.data as unknown as Order;
     }
   }
 
@@ -62,7 +64,7 @@ export default async function OrderSuccessPage({ searchParams }: Props) {
       {/* PDF Invoice Component with Staggered Entrance */}
       <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
         {order ? (
-          <OrderInvoicePDF order={order as any} />
+          <OrderInvoicePDF order={order} />
         ) : (
           <div className="bg-white rounded-3xl p-8 border border-slate-200/80 text-center space-y-3 shadow-xs">
             <FileText className="w-10 h-10 text-amber-500 mx-auto" />
@@ -71,6 +73,18 @@ export default async function OrderSuccessPage({ searchParams }: Props) {
           </div>
         )}
       </div>
+
+      <section className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl sm:text-3xl font-black text-[#1b2342] tracking-tight">
+            Complete Your Payment
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-xl mx-auto leading-relaxed font-medium">
+            Use any of the payment options below, then share your payment screenshot with us on WhatsApp.
+          </p>
+        </div>
+        <PaymentInfoClient />
+      </section>
 
       {/* Action Buttons */}
       <div className="pt-4 flex items-center justify-center gap-4 print:hidden animate-in fade-in duration-1000">

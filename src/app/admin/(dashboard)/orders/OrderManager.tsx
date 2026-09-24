@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { Order, OrderStatus } from '@/types/order';
+import type { Order, OrderItem, OrderStatus } from '@/types/order';
 import { updateOrderStatus } from '@/services/order.actions';
 import { formatCurrency } from '@/lib/utils';
 import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown, Download, CreditCard, DollarSign, Edit2, FileText, Receipt, AlertCircle } from 'lucide-react';
@@ -9,6 +9,7 @@ import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { generateInvoicePDF, generateGSTInvoicePDF } from '@/lib/invoicePdfGenerator';
 import { updateOrderPaymentDetails } from '@/services/order.actions';
 import { createGstAuditBill } from '@/services/gst-bill.actions';
+import { updateAdminBillingOrder, type BillingOrderItem } from '@/services/billing.actions';
 
 const statusOptions: { value: OrderStatus; label: string; icon: any; color: string }[] = [
   { value: 'pending', label: 'Pending Review', icon: Clock, color: 'text-amber-700 bg-amber-50 border-amber-200' },
@@ -104,8 +105,12 @@ Sri Arumugam Pyro Park
 }
 
 export default function OrderManager({ orders }: { orders: Order[] }) {
+  const [visibleOrders, setVisibleOrders] = useState<Order[]>(orders);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<Order | null>(null);
+  const [editingProducts, setEditingProducts] = useState(false);
+  const [editedItems, setEditedItems] = useState<OrderItem[]>([]);
+  const [savingProducts, setSavingProducts] = useState(false);
 
   // Payment Update Modal State
   const [paymentModalOrder, setPaymentModalOrder] = useState<Order | null>(null);
@@ -132,6 +137,72 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const openOrderItems = (order: Order, edit = false) => {
+    setSelectedOrderForModal(order);
+    setEditedItems(order.order_items ? [...order.order_items] : []);
+    setEditingProducts(edit);
+  };
+
+  const closeOrderItems = () => {
+    setSelectedOrderForModal(null);
+    setEditingProducts(false);
+    setEditedItems([]);
+  };
+
+  const removeEditedItem = (itemId?: string) => {
+    setEditedItems((items) => items.filter((item) => item.id !== itemId));
+  };
+
+  const updateEditedQuantity = (itemId: string | undefined, quantity: number) => {
+    setEditedItems((items) => items.map((item) => (
+      item.id === itemId ? { ...item, quantity: Math.max(1, quantity) } : item
+    )));
+  };
+
+  const handleSaveProductEdits = async () => {
+    if (!selectedOrderForModal || editedItems.length === 0) {
+      alert('At least one product must remain on the order.');
+      return;
+    }
+
+    setSavingProducts(true);
+    const items: BillingOrderItem[] = editedItems.map((item) => ({
+      id: item.product_id || item.id || `order_item_${Date.now()}`,
+      name: item.product_name,
+      price: item.price,
+      discount: 0,
+      finalPrice: item.price,
+      quantity: item.quantity,
+    }));
+    const totalAmount = items.reduce((total, item) => total + item.finalPrice * item.quantity, 0);
+    const paidAmount = getOrderPaymentBreakdown(selectedOrderForModal).paidAmount;
+    const result = await updateAdminBillingOrder({
+      orderId: selectedOrderForModal.id,
+      totalAmount,
+      paidAmount,
+      items,
+    });
+    setSavingProducts(false);
+
+    if (!result.success) {
+      alert(result.error || 'Failed to update order products.');
+      return;
+    }
+
+    const updatedOrder: Order = {
+      ...selectedOrderForModal,
+      total_amount: totalAmount,
+      paid_amount: paidAmount,
+      remaining_amount: Math.max(0, totalAmount - paidAmount),
+      order_items: editedItems,
+    };
+    setVisibleOrders((currentOrders) => currentOrders.map((order) => (
+      order.id === updatedOrder.id ? updatedOrder : order
+    )));
+    setSelectedOrderForModal(updatedOrder);
+    setEditingProducts(false);
+  };
 
   const openGstModal = (order: Order) => {
     setGstModalOrder(order);
@@ -337,7 +408,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
   };
 
   const filteredOrders = useMemo(() => {
-    return orders
+    return visibleOrders
       .filter((o) => {
         const query = searchQuery.toLowerCase();
         const matchesSearch =
@@ -369,7 +440,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
         if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [orders, searchQuery, selectedStatus, sortColumn, sortDirection]);
+  }, [visibleOrders, searchQuery, selectedStatus, sortColumn, sortDirection]);
 
   const renderSortIcon = (col: string) => {
     if (sortColumn !== col) return <ArrowUpDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors" />;
@@ -443,7 +514,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
         )}
 
         <span className="ml-auto text-slate-400 text-[11px] font-bold">
-          Showing {filteredOrders.length} of {orders.length} orders
+          Showing {filteredOrders.length} of {visibleOrders.length} orders
         </span>
       </div>
 
@@ -556,12 +627,20 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                       {/* ITEMS LIST */}
                       <td className="py-3.5 px-4">
                         <button
-                          onClick={() => setSelectedOrderForModal(order)}
+                          onClick={() => openOrderItems(order)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 font-extrabold text-[11px] transition-all cursor-pointer hover:scale-105 shadow-2xs active:scale-95 whitespace-nowrap"
                           title="Click to open full order items popup"
                         >
                           <Eye className="w-3.5 h-3.5 text-amber-600" />
                           <span>View Items ({totalItemsCount})</span>
+                        </button>
+                        <button
+                          onClick={() => openOrderItems(order, true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-extrabold text-[11px] transition-all cursor-pointer hover:scale-105 shadow-2xs"
+                          title="Edit products in this order"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Edit Products</span>
                         </button>
                       </td>
 
@@ -657,6 +736,11 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                     <h3 className="font-black text-lg text-slate-900">
                       Order #{selectedOrderForModal.id.split('-')[0].toUpperCase()}
                     </h3>
+                    {editingProducts && (
+                      <span className="text-[10px] uppercase tracking-wider font-black text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+                        Editing Products
+                      </span>
+                    )}
                     <span className="text-xs text-slate-400 font-mono">
                       ({new Date(selectedOrderForModal.created_at).toLocaleString('en-IN')})
                     </span>
@@ -667,7 +751,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 </div>
               </div>
               <button
-                onClick={() => setSelectedOrderForModal(null)}
+                onClick={closeOrderItems}
                 className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -696,12 +780,13 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                       <th className="py-3 px-4 text-center bg-slate-50">Unit Price</th>
                       <th className="py-3 px-4 text-center bg-slate-50">Quantity</th>
                       <th className="py-3 px-4 text-right bg-slate-50">Subtotal</th>
+                      {editingProducts && <th className="py-3 px-4 text-right bg-slate-50">Remove</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {selectedOrderForModal.order_items && selectedOrderForModal.order_items.length > 0 ? (
-                      selectedOrderForModal.order_items.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                      editedItems.map((item, index) => (
+                        <tr key={item.id || `${item.product_name}-${index}`} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3 px-4 font-bold text-slate-900">
                             {item.product_name}
                           </td>
@@ -709,11 +794,33 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                             {formatCurrency(item.price)}
                           </td>
                           <td className="py-3 px-4 text-center font-extrabold text-amber-700">
-                            ×{item.quantity}
+                            {editingProducts ? (
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(event) => updateEditedQuantity(item.id, Number(event.target.value))}
+                                className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-center text-slate-900 font-bold"
+                              />
+                            ) : (
+                              <>×{item.quantity}</>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-right font-black text-slate-900">
                             {formatCurrency(item.price * item.quantity)}
                           </td>
+                          {editingProducts && (
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                onClick={() => removeEditedItem(item.id)}
+                                disabled={editedItems.length === 1}
+                                className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                                title="Remove product"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))
                     ) : (
@@ -730,6 +837,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                         <td className="py-3 px-4 text-right font-black text-slate-900">
                           {formatCurrency(selectedOrderForModal.total_amount)}
                         </td>
+                        {editingProducts && <td />}
                       </tr>
                     )}
                   </tbody>
@@ -747,7 +855,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
               </div>
 
               <div className="flex items-center gap-2">
-                <a
+                {!editingProducts && <a
                   href={getWhatsAppThankYouLink(selectedOrderForModal)}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -755,14 +863,32 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 >
                   <WhatsAppIcon className="w-4 h-4 text-white cursor-pointer" />
                   <span>Send Thank You on WhatsApp</span>
-                </a>
+                </a>}
+
+                {!editingProducts && (
+                  <button
+                    onClick={() => generateInvoicePDF({ ...selectedOrderForModal, order_items: selectedOrderForModal.order_items || [] }, true)}
+                    className="bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-800 border border-slate-200 font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all shadow-md cursor-pointer flex items-center gap-2"
+                  >
+                    <Receipt className="w-4 h-4" /> Receipt PDF
+                  </button>
+                )}
 
                 <button
-                  onClick={() => setSelectedOrderForModal(null)}
+                  onClick={editingProducts ? () => setEditingProducts(false) : closeOrderItems}
                   className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer hover:scale-105"
                 >
-                  Close Window
+                  {editingProducts ? 'Cancel Edit' : 'Close Window'}
                 </button>
+                {editingProducts && (
+                  <button
+                    onClick={handleSaveProductEdits}
+                    disabled={savingProducts || editedItems.length === 0}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    {savingProducts ? 'Saving...' : 'Save Products'}
+                  </button>
+                )}
               </div>
             </div>
 

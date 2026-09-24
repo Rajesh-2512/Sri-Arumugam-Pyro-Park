@@ -5,7 +5,7 @@ import { Product, WalkInProduct } from '@/types/product';
 import { GiftBox } from '@/types/giftbox';
 import { formatCurrency, getProductImage } from '@/lib/utils';
 import SafeProductImage from '@/components/shop/SafeProductImage';
-import { createAdminBillingOrder, BillingOrderItem } from '@/services/billing.actions';
+import { createAdminBillingOrder, updateAdminBillingOrder, BillingOrderItem } from '@/services/billing.actions';
 import {
   Search,
   Plus,
@@ -71,6 +71,10 @@ interface SavedOrderReceipt {
   gstAmount: number;
   grandTotal: number;
   paymentMode: string;
+  overallDiscountPercent: number;
+  gstMode: 'none' | 'exclusive' | 'inclusive';
+  gstRate: number;
+  paidAmount: number;
 }
 
 export default function BillingManager({ products, giftBoxes, walkInProducts }: BillingManagerProps) {
@@ -114,6 +118,9 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
   // --- THERMAL RECEIPT MODAL ---
   const [showThermalModal, setShowThermalModal] = useState(false);
   const [lastSavedOrder, setLastSavedOrder] = useState<SavedOrderReceipt | null>(null);
+  const [editingReceipt, setEditingReceipt] = useState<SavedOrderReceipt | null>(null);
+  const [isEditingSavedOrder, setIsEditingSavedOrder] = useState(false);
+  const [savingSavedOrder, setSavingSavedOrder] = useState(false);
 
   // --- STATUS STATE ---
   const [submitting, setSubmitting] = useState(false);
@@ -317,26 +324,42 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
   };
 
   // PDF Generation Function
-  const generatePdfInvoice = async (orderId: string, createdAtDate?: string, invoiceNumber?: string) => {
-    const paidVal = paidAmountInput ? parseFloat(paidAmountInput) : grandTotal;
-    const remVal = Math.max(0, grandTotal - paidVal);
+  const generatePdfInvoice = async (
+    orderId: string,
+    createdAtDate?: string,
+    invoiceNumber?: string,
+    receipt?: SavedOrderReceipt
+  ) => {
+    const receiptItems = receipt?.items ?? lineItems;
+    const receiptCustomerName = receipt?.customerName ?? customerName;
+    const receiptPhone = receipt?.phone ?? phone;
+    const receiptGrandTotal = receipt?.grandTotal ?? grandTotal;
+    const receiptDiscountedSubtotal = receipt
+      ? receipt.subtotal - receipt.discount
+      : discountedSubtotal;
+    const receiptGstAmount = receipt?.gstAmount ?? gstAmount;
+    const receiptPaidAmount = receipt?.paidAmount ?? (paidAmountInput ? parseFloat(paidAmountInput) : receiptGrandTotal);
+    const receiptGstMode = receipt?.gstMode ?? gstMode;
+    const receiptGstRate = receipt?.gstRate ?? gstRate;
+    const paidVal = receiptPaidAmount;
+    const remVal = Math.max(0, receiptGrandTotal - paidVal);
 
-    if (gstMode !== 'none') {
+    if (receiptGstMode !== 'none') {
       await generateGSTInvoicePDF(
         {
           id: orderId,
           invoice_number: invoiceNumber,
-          customer_name: customerName,
-          phone,
+          customer_name: receiptCustomerName,
+          phone: receiptPhone,
           address: address || 'In-Store Counter Buyer',
           city: city || 'Sivakasi',
           pincode: pincode || '626123',
           aadhar_pan: aadharPan || null,
           paid_amount: paidVal,
           remaining_amount: remVal,
-          total_amount: grandTotal,
+          total_amount: receiptGrandTotal,
           created_at: createdAtDate || new Date().toISOString(),
-          order_items: lineItems.map((item) => ({
+          order_items: receiptItems.map((item) => ({
             product_name: item.name,
             price: item.finalPrice,
             quantity: item.quantity,
@@ -345,34 +368,34 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
         true,
         {
           billNumber: invoiceNumber ? `GST-${invoiceNumber}` : `GST-${orderId.slice(-8).toUpperCase()}`,
-          customerName: customerName,
-          phone,
+          customerName: receiptCustomerName,
+          phone: receiptPhone,
           address: address || 'In-Store Counter',
           city: city || 'Sivakasi',
           pincode: pincode || '626123',
           gstinAadhar: aadharPan || gstin || null,
-          totalAmount: grandTotal,
-          taxableAmount: discountedSubtotal,
-          gstAmount,
-          gstRate,
-          gstMode,
+          totalAmount: receiptGrandTotal,
+          taxableAmount: receiptDiscountedSubtotal,
+          gstAmount: receiptGstAmount,
+          gstRate: receiptGstRate,
+          gstMode: receiptGstMode,
         }
       );
     } else {
       await generateInvoicePDF({
         id: orderId,
         invoice_number: invoiceNumber,
-        customer_name: customerName,
-        phone,
+        customer_name: receiptCustomerName,
+        phone: receiptPhone,
         address: address || 'In-Store Counter Buyer',
         city: city || 'Sivakasi',
         pincode: pincode || '626123',
         aadhar_pan: aadharPan || null,
         paid_amount: paidVal,
         remaining_amount: remVal,
-        total_amount: grandTotal,
+        total_amount: receiptGrandTotal,
         created_at: createdAtDate || new Date().toISOString(),
-        order_items: lineItems.map((item) => ({
+        order_items: receiptItems.map((item) => ({
           product_name: item.name,
           price: item.finalPrice,
           quantity: item.quantity,
@@ -422,7 +445,7 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
       const orderDateStr = res.createdAt || new Date().toISOString();
 
       // Save for Thermal Receipt View Modal
-      setLastSavedOrder({
+      const savedReceipt: SavedOrderReceipt = {
         orderId: orderIdStr,
         invoiceNumber,
         date: new Date(orderDateStr).toLocaleString('en-IN'),
@@ -434,12 +457,17 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
         gstAmount,
         grandTotal,
         paymentMode,
-      });
+        overallDiscountPercent,
+        gstMode,
+        gstRate,
+        paidAmount: paidVal,
+      };
+      setLastSavedOrder(savedReceipt);
 
       setMessage({ type: 'success', text: `${invoiceNumber} created & saved successfully!` });
       
       // Auto-trigger PDF invoice download
-      generatePdfInvoice(orderIdStr, orderDateStr, invoiceNumber);
+      generatePdfInvoice(orderIdStr, orderDateStr, invoiceNumber, savedReceipt);
 
       // Reset Form State & Close Checkout Page
       setLineItems([]);
@@ -454,6 +482,61 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
       setMessage({ type: 'error', text: res.error || 'Failed to save billing order.' });
     }
   };
+
+  const recalculateSavedReceipt = (receipt: SavedOrderReceipt, items: BillingOrderItem[]): SavedOrderReceipt => {
+    const subtotal = items.reduce((total, item) => total + item.finalPrice * item.quantity, 0);
+    const discount = (subtotal * receipt.overallDiscountPercent) / 100;
+    const discountedSubtotal = Math.max(0, subtotal - discount);
+    const gstAmount = receipt.gstMode === 'exclusive'
+      ? (discountedSubtotal * receipt.gstRate) / 100
+      : receipt.gstMode === 'inclusive'
+      ? discountedSubtotal - discountedSubtotal / (1 + receipt.gstRate / 100)
+      : 0;
+    const grandTotal = receipt.gstMode === 'exclusive' ? discountedSubtotal + gstAmount : discountedSubtotal;
+
+    return { ...receipt, items, subtotal, discount, gstAmount, grandTotal };
+  };
+
+  const startSavedOrderEdit = () => {
+    if (!lastSavedOrder) return;
+    setEditingReceipt({ ...lastSavedOrder, items: [...lastSavedOrder.items] });
+    setIsEditingSavedOrder(true);
+  };
+
+  const removeSavedOrderItem = (itemId: string) => {
+    if (!editingReceipt) return;
+    if (editingReceipt.items.length === 1) {
+      setMessage({ type: 'error', text: 'At least one product must remain on the order.' });
+      return;
+    }
+    const items = editingReceipt.items.filter((item) => item.id !== itemId);
+    setEditingReceipt(recalculateSavedReceipt(editingReceipt, items));
+  };
+
+  const saveSavedOrderEdit = async () => {
+    if (!editingReceipt) return;
+    setSavingSavedOrder(true);
+    const result = await updateAdminBillingOrder({
+      orderId: editingReceipt.orderId,
+      totalAmount: editingReceipt.grandTotal,
+      paidAmount: editingReceipt.paidAmount,
+      items: editingReceipt.items,
+    });
+    setSavingSavedOrder(false);
+
+    if (!result.success) {
+      setMessage({ type: 'error', text: result.error || 'Could not update the saved order.' });
+      return;
+    }
+
+    setLastSavedOrder(editingReceipt);
+    setEditingReceipt(null);
+    setIsEditingSavedOrder(false);
+    setMessage({ type: 'success', text: 'Order updated. The revised invoice is ready.' });
+    await generatePdfInvoice(editingReceipt.orderId, undefined, editingReceipt.invoiceNumber, editingReceipt);
+  };
+
+  const receiptForModal = editingReceipt ?? lastSavedOrder;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden font-sans bg-slate-50 text-slate-800 selection:bg-amber-500 selection:text-white">
@@ -1564,7 +1647,7 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
       )}
 
       {/* ─── MODAL 2: THERMAL RECEIPT VIEW MODAL ─── */}
-      {showThermalModal && lastSavedOrder && (
+      {showThermalModal && receiptForModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-fadeIn">
             
@@ -1573,6 +1656,14 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
                 <Receipt className="w-5 h-5 text-amber-600" />
                 <h3 className="font-black text-base text-slate-900">80mm Thermal Receipt View</h3>
               </div>
+              {!isEditingSavedOrder && (
+                <button
+                  onClick={startSavedOrderEdit}
+                  className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[11px] font-black cursor-pointer"
+                >
+                  Edit Items
+                </button>
+              )}
               <button
                 onClick={() => setShowThermalModal(false)}
                 className="text-slate-400 hover:text-slate-700 cursor-pointer"
@@ -1592,12 +1683,12 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
 
               <div className="border-t border-b border-dashed border-slate-300 py-1 space-y-0.5 text-[10px]">
                 <div className="flex justify-between">
-                  <span>INV: #{lastSavedOrder.orderId.slice(-8).toUpperCase()}</span>
-                  <span>DATE: {lastSavedOrder.date}</span>
+                  <span>INV: #{receiptForModal.orderId.slice(-8).toUpperCase()}</span>
+                  <span>DATE: {receiptForModal.date}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>CUST: {lastSavedOrder.customerName}</span>
-                  <span>MOB: {lastSavedOrder.phone}</span>
+                  <span>CUST: {receiptForModal.customerName}</span>
+                  <span>MOB: {receiptForModal.phone}</span>
                 </div>
               </div>
 
@@ -1607,10 +1698,21 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
                   <span>ITEM</span>
                   <span>QTY × PRICE = TOTAL</span>
                 </div>
-                {lastSavedOrder.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between text-[10px]">
+                {receiptForModal.items.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-2 text-[10px]">
                     <span className="truncate max-w-[160px]">{item.name}</span>
-                    <span>{item.quantity} × {item.finalPrice} = ₹{item.quantity * item.finalPrice}</span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span>{item.quantity} × {item.finalPrice} = ₹{item.quantity * item.finalPrice}</span>
+                      {isEditingSavedOrder && (
+                        <button
+                          onClick={() => removeSavedOrderItem(item.id)}
+                          aria-label={`Remove ${item.name}`}
+                          className="text-red-600 hover:text-red-800 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1619,27 +1721,27 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
               <div className="border-t border-dashed border-slate-300 pt-2 space-y-1 text-[10px]">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span>INR {lastSavedOrder.subtotal.toFixed(2)}</span>
+                  <span>INR {receiptForModal.subtotal.toFixed(2)}</span>
                 </div>
-                {lastSavedOrder.discount > 0 && (
+                {receiptForModal.discount > 0 && (
                   <div className="flex justify-between text-emerald-700">
                     <span>Discount:</span>
-                    <span>- INR {lastSavedOrder.discount.toFixed(2)}</span>
+                    <span>- INR {receiptForModal.discount.toFixed(2)}</span>
                   </div>
                 )}
-                {lastSavedOrder.gstAmount > 0 && (
+                {receiptForModal.gstAmount > 0 && (
                   <div className="flex justify-between">
                     <span>GST Tax:</span>
-                    <span>+ INR {lastSavedOrder.gstAmount.toFixed(2)}</span>
+                    <span>+ INR {receiptForModal.gstAmount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-black text-xs border-t border-slate-900 pt-1">
                   <span>TOTAL:</span>
-                  <span>INR {lastSavedOrder.grandTotal.toFixed(2)}</span>
+                  <span>INR {receiptForModal.grandTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-[9px] text-slate-600">
                   <span>PAYMENT MODE:</span>
-                  <span>{lastSavedOrder.paymentMode.toUpperCase()}</span>
+                  <span>{receiptForModal.paymentMode.toUpperCase()}</span>
                 </div>
               </div>
 
@@ -1652,23 +1754,23 @@ export default function BillingManager({ products, giftBoxes, walkInProducts }: 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => generatePdfInvoice(lastSavedOrder.orderId, undefined, lastSavedOrder.invoiceNumber)}
+                  onClick={() => generatePdfInvoice(receiptForModal.orderId, undefined, receiptForModal.invoiceNumber, receiptForModal)}
                   className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer className="w-4 h-4 text-amber-600" /> PDF
                 </button>
 
                 {(() => {
-                  const cleanPhone = lastSavedOrder.phone.replace(/\D/g, '');
+                  const cleanPhone = receiptForModal.phone.replace(/\D/g, '');
                   const phoneWithCountry = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
-                  const itemsList = lastSavedOrder.items.map((i) => `• ${i.name} (${i.quantity} qty)`).join('\n');
-                  const msgText = `Dear ${lastSavedOrder.customerName},
+                  const itemsList = receiptForModal.items.map((i) => `• ${i.name} (${i.quantity} qty)`).join('\n');
+                  const msgText = `Dear ${receiptForModal.customerName},
 
 Thank you for purchasing from Sri Arumugam Pyro Park Sivakasi! 🎆✨
 
-🧾 Invoice No: #${lastSavedOrder.orderId.slice(-8).toUpperCase()}
-💰 Total Amount Paid: ${formatCurrency(lastSavedOrder.grandTotal)}
-💳 Payment Mode: ${lastSavedOrder.paymentMode.toUpperCase()}
+🧾 Invoice No: #${receiptForModal.orderId.slice(-8).toUpperCase()}
+💰 Total Amount Paid: ${formatCurrency(receiptForModal.grandTotal)}
+💳 Payment Mode: ${receiptForModal.paymentMode.toUpperCase()}
 
 Items Purchased:
 ${itemsList}
@@ -1691,12 +1793,34 @@ Thank you for shopping with our Sivakasi Direct Factory Outlet!
                 })()}
               </div>
 
-              <button
-                onClick={() => setShowThermalModal(false)}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl cursor-pointer shadow-2xs"
-              >
-                Close
-              </button>
+              {isEditingSavedOrder && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingReceipt(null);
+                      setIsEditingSavedOrder(false);
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveSavedOrderEdit}
+                    disabled={savingSavedOrder}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl cursor-pointer disabled:opacity-50"
+                  >
+                    {savingSavedOrder ? 'Saving...' : 'Save & Regenerate PDF'}
+                  </button>
+                </div>
+              )}
+              {!isEditingSavedOrder && (
+                <button
+                  onClick={() => setShowThermalModal(false)}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl cursor-pointer shadow-2xs"
+                >
+                  Close
+                </button>
+              )}
             </div>
 
           </div>
