@@ -30,9 +30,44 @@ export interface CreateBillingInput {
   items: BillingOrderItem[];
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function deleteIncompleteBillingOrder(orderId: string) {
+  const { error: itemsError } = await adminSupabase.from('order_items').delete().eq('order_id', orderId);
+  const { error: orderError } = await adminSupabase.from('orders').delete().eq('id', orderId);
+  if (itemsError || orderError) {
+    console.error('Could not fully remove incomplete POS order:', { itemsError, orderError });
+  }
+}
+
 export async function createAdminBillingOrder(input: CreateBillingInput) {
   if (!input.customer_name || !input.phone || input.items.length === 0) {
     return { success: false, error: 'Customer name, phone number, and items are required.' };
+  }
+
+  const productIds = Array.from(new Set(input.items.map((item) => item.id).filter((id) => UUID_PATTERN.test(id))));
+  const { data: inventoryProducts, error: inventoryError } = productIds.length > 0
+    ? await adminSupabase.from('products').select('id, name, price, discount, stock').in('id', productIds)
+    : { data: [], error: null };
+
+  if (inventoryError) return { success: false, error: `Could not verify product inventory: ${inventoryError.message}` };
+
+  const productsById = new Map((inventoryProducts ?? []).map((product) => [product.id, product]));
+  const stockItems: { product_id: string; quantity: number }[] = [];
+  for (const item of input.items) {
+    const quantity = Number(item.quantity);
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return { success: false, error: `Invalid quantity for ${item.name}.` };
+    }
+
+    if (UUID_PATTERN.test(item.id)) {
+      const product = productsById.get(item.id);
+      if (!product) return { success: false, error: `${item.name} is no longer in the product inventory.` };
+      if (quantity > product.stock) {
+        return { success: false, error: `Only ${product.stock} units of ${product.name} are currently in stock.` };
+      }
+      stockItems.push({ product_id: product.id, quantity });
+    }
   }
 
   const paidVal = input.paid_amount !== undefined ? input.paid_amount : input.total_amount;
@@ -88,34 +123,20 @@ export async function createAdminBillingOrder(input: CreateBillingInput) {
     return { success: false, error: orderError?.message || 'Failed to create order' };
   }
 
-  const walkInIds = input.items
-    .map((item: BillingOrderItem) => item.id.startsWith('walkin_') ? item.id.slice(7) : null)
-    .filter((id): id is string => Boolean(id));
-  const { data: walkInProducts } = walkInIds.length > 0
-    ? await adminSupabase.from('walk_in_products').select('id, name, price, discount').in('id', walkInIds)
-    : { data: [] };
-  const walkInPriceById = new Map((walkInProducts ?? []).map((product) => [product.id, product]));
-
-  // Fetch all existing product IDs to prevent foreign key errors for combo boxes or custom items
-  const { data: existingProducts } = await adminSupabase.from('products').select('id');
-  const validProductIds = new Set(existingProducts?.map((p) => p.id) || []);
-
-  const orderItemsData = input.items.map((i: any) => {
-    const walkInProduct = i.id.startsWith('walkin_')
-      ? walkInPriceById.get(i.id.slice(7))
-      : null;
-    const itemPrice = walkInProduct
-      ? Number(walkInProduct.price) * (1 - Number(walkInProduct.discount || 0) / 100)
-      : typeof i.finalPrice === 'number' && !isNaN(i.finalPrice)
-      ? i.finalPrice
-      : (typeof i.price === 'number' && !isNaN(i.price) ? i.price : 0);
+  const orderItemsData = input.items.map((item) => {
+    const product = productsById.get(item.id);
+    const itemPrice = product
+      ? Number(product.price) * (1 - Number(product.discount || 0) / 100)
+      : Number.isFinite(item.finalPrice)
+      ? item.finalPrice
+      : (Number.isFinite(item.price) ? item.price : 0);
 
     return {
       order_id: order.id,
-      product_id: validProductIds.has(i.id) ? i.id : null,
-      product_name: String(walkInProduct?.name || i.name || i.product_name || 'POS Cracker Item'),
+      product_id: product?.id ?? null,
+      product_name: String(product?.name || item.name || 'POS Cracker Item'),
       price: Number(itemPrice),
-      quantity: Math.max(1, Number(i.quantity || 1)),
+      quantity: Number(item.quantity),
     };
   });
 
@@ -133,10 +154,30 @@ export async function createAdminBillingOrder(input: CreateBillingInput) {
       price: item.price,
       quantity: item.quantity,
     }));
-    await adminSupabase.from('order_items').insert(fallbackItems);
+    const { error: fallbackError } = await adminSupabase.from('order_items').insert(fallbackItems);
+
+    if (fallbackError) {
+      console.error('Error creating billing order items without product_id:', fallbackError);
+      await deleteIncompleteBillingOrder(order.id);
+      return { success: false, error: `Order was created, but its product list could not be saved: ${fallbackError.message}` };
+    }
+  }
+
+  if (stockItems.length > 0) {
+    const { error: stockError } = await adminSupabase.rpc('decrement_product_stock', { p_items: stockItems });
+    if (stockError) {
+      console.error('Error decrementing POS product inventory:', stockError);
+      await deleteIncompleteBillingOrder(order.id);
+      return { success: false, error: stockError.message.includes('Insufficient stock')
+        ? 'Stock changed while this bill was being completed. Refresh the product list and try again.'
+        : `Could not update product inventory: ${stockError.message}` };
+    }
   }
 
   revalidatePath('/admin/orders');
+  revalidatePath('/admin/products');
+  revalidatePath('/admin/billing');
+  revalidatePath('/admin');
   return { success: true, orderId: order.id, invoiceNumber: order.invoice_number, createdAt: order.created_at };
 }
 

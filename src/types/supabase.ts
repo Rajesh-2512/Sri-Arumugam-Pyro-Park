@@ -377,7 +377,10 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      decrement_product_stock: {
+        Args: { p_items: Json };
+        Returns: undefined;
+      };
     };
     Enums: {
       order_status: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled' | 'refunded';

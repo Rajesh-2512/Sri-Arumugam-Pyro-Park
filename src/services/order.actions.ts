@@ -23,6 +23,16 @@ const orderSchema = z.object({
 
 type PlaceOrderInput = z.infer<typeof orderSchema>;
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function deleteIncompleteOrder(orderId: string) {
+  const { error: itemsError } = await adminSupabase.from('order_items').delete().eq('order_id', orderId);
+  const { error: orderError } = await adminSupabase.from('orders').delete().eq('id', orderId);
+  if (itemsError || orderError) {
+    console.error('Could not fully remove incomplete order:', { itemsError, orderError });
+  }
+}
+
 export async function getNextInvoiceNumber(): Promise<string> {
   const { data, error } = await (adminSupabase as any).rpc('next_invoice_number');
   if (error || !data) {
@@ -73,6 +83,33 @@ export async function placeOrder(input: PlaceOrderInput) {
       success: false,
       error: '⚠️ Shop is currently closed for new orders. Orders placed now will be processed when shop reopens.',
     };
+  }
+
+  if (items.some((item: any) => !UUID_PATTERN.test(String(item.id)))) {
+    return { success: false, error: 'One or more cart products are invalid. Refresh the catalog and try again.' };
+  }
+
+  const productIds = Array.from(new Set(items.map((item: any) => String(item.id))));
+  const { data: inventoryProducts, error: inventoryError } = await adminSupabase
+    .from('products')
+    .select('id, name, stock')
+    .in('id', productIds);
+
+  if (inventoryError) return { success: false, error: `Could not verify product inventory: ${inventoryError.message}` };
+
+  const productsById = new Map((inventoryProducts ?? []).map((product) => [product.id, product]));
+  const stockItems: { product_id: string; quantity: number }[] = [];
+  for (const item of items as any[]) {
+    const product = productsById.get(item.id);
+    const quantity = Number(item.quantity);
+    if (!product) return { success: false, error: `${item.name} is no longer in the product inventory.` };
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return { success: false, error: `Invalid quantity for ${item.name}.` };
+    }
+    if (quantity > product.stock) {
+      return { success: false, error: `Only ${product.stock} units of ${product.name} are currently in stock.` };
+    }
+    stockItems.push({ product_id: product.id, quantity });
   }
 
   const notesText = [
@@ -136,10 +173,6 @@ export async function placeOrder(input: PlaceOrderInput) {
     return { success: false, error: orderError?.message || 'Failed to create order' };
   }
 
-  // Fetch all existing product IDs to prevent foreign key errors for combo boxes or custom items
-  const { data: existingProducts } = await adminSupabase.from('products').select('id');
-  const validProductIds = new Set(existingProducts?.map((p) => p.id) || []);
-
   // Insert order snapshot items with robust sanitization
   const orderItems = items.map((item: any) => {
     const itemPrice = typeof item.finalPrice === 'number' && !isNaN(item.finalPrice)
@@ -148,7 +181,7 @@ export async function placeOrder(input: PlaceOrderInput) {
 
     return {
       order_id: order.id,
-      product_id: validProductIds.has(item.id) ? item.id : null,
+      product_id: productsById.has(item.id) ? item.id : null,
       product_name: String(item.name || item.product_name || 'Cracker Item'),
       price: Number(itemPrice),
       quantity: Math.max(1, Number(item.quantity || 1)),
@@ -168,10 +201,27 @@ export async function placeOrder(input: PlaceOrderInput) {
       price: i.price,
       quantity: i.quantity,
     }));
-    await adminSupabase.from('order_items').insert(fallbackItems);
+    const { error: fallbackError } = await adminSupabase.from('order_items').insert(fallbackItems);
+    if (fallbackError) {
+      console.error('Fallback order item insert failed:', fallbackError);
+      await deleteIncompleteOrder(order.id);
+      return { success: false, error: `Order products could not be saved: ${fallbackError.message}` };
+    }
+  }
+
+  const { error: stockError } = await adminSupabase.rpc('decrement_product_stock', { p_items: stockItems });
+  if (stockError) {
+    console.error('Error decrementing web order inventory:', stockError);
+    await deleteIncompleteOrder(order.id);
+    return { success: false, error: stockError.message.includes('Insufficient stock')
+      ? 'Stock changed while this order was being placed. Refresh the catalog and try again.'
+      : `Could not update product inventory: ${stockError.message}` };
   }
 
   revalidatePath('/admin/orders');
+  revalidatePath('/admin/products');
+  revalidatePath('/admin/billing');
+  revalidatePath('/admin');
 
   // Wait for the notification before returning so serverless runtimes do not terminate the SMTP request.
   const emailResult = await sendOrderNotificationEmail({

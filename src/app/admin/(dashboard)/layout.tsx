@@ -15,7 +15,6 @@ import {
   FileText,
   MessageSquareHeart,
   Receipt,
-  Store,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -23,7 +22,6 @@ const navItems = [
   { href: '/admin', label: 'Dashboard Overview', icon: LayoutDashboard },
   { href: '/admin/billing', label: 'POS Billing Desk', icon: FileText },
   { href: '/admin/products', label: 'Product Inventory', icon: Package },
-  { href: '/admin/walk-in-products', label: 'Walk-in POS Prices', icon: Store },
   { href: '/admin/gift-boxes', label: 'Combo Boxes', icon: Gift },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },
   { href: '/admin/orders', label: 'Orders & Receipts', icon: ShoppingBag },
