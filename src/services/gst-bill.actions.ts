@@ -148,3 +148,27 @@ export async function deleteGstAuditBill(id: string): Promise<{ success: boolean
     return { success: false, error: err.message || 'Failed to delete GST bill' };
   }
 }
+
+export async function updateGstAuditBillNumber(
+  id: string,
+  billNumber: string
+): Promise<{ success: boolean; billNumber?: string; error?: string }> {
+  try {
+    const cleanBillNumber = billNumber.trim();
+    if (!id) return { success: false, error: 'GST bill ID is required.' };
+    if (!cleanBillNumber) return { success: false, error: 'Invoice number cannot be empty.' };
+    if (cleanBillNumber.length > 50) return { success: false, error: 'Invoice number must be 50 characters or fewer.' };
+
+    const { error } = await adminSupabase
+      .from('gst_audit_bills')
+      .update({ bill_number: cleanBillNumber })
+      .eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/admin/gst-bills');
+    return { success: true, billNumber: cleanBillNumber };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to update GST invoice number' };
+  }
+}

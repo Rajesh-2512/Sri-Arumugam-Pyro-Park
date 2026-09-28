@@ -144,20 +144,29 @@ export async function updateAdminBillingOrder(input: {
   orderId: string;
   totalAmount: number;
   paidAmount: number;
-  items: BillingOrderItem[];
+  invoiceNumber?: string;
+  items?: BillingOrderItem[];
 }) {
-  if (!input.orderId || input.items.length === 0) {
+  if (!input.orderId || (input.items !== undefined && input.items.length === 0)) {
     return { success: false, error: 'Order ID and at least one item are required.' };
   }
 
+  const invoiceNumber = input.invoiceNumber?.trim();
+  if (input.invoiceNumber !== undefined && (!invoiceNumber || invoiceNumber.length > 50)) {
+    return { success: false, error: 'Invoice number must be between 1 and 50 characters.' };
+  }
+
   const remainingAmount = Math.max(0, input.totalAmount - input.paidAmount);
+  const orderUpdate = {
+    total_amount: input.totalAmount,
+    paid_amount: input.paidAmount,
+    remaining_amount: remainingAmount,
+    ...(invoiceNumber ? { invoice_number: invoiceNumber } : {}),
+  };
+
   const { error: orderError } = await adminSupabase
     .from('orders')
-    .update({
-      total_amount: input.totalAmount,
-      paid_amount: input.paidAmount,
-      remaining_amount: remainingAmount,
-    })
+    .update(orderUpdate)
     .eq('id', input.orderId);
 
   if (orderError) {
@@ -165,32 +174,35 @@ export async function updateAdminBillingOrder(input: {
     return { success: false, error: orderError.message };
   }
 
-  const { error: deleteError } = await adminSupabase
-    .from('order_items')
-    .delete()
-    .eq('order_id', input.orderId);
+  if (input.items) {
+    const { error: deleteError } = await adminSupabase
+      .from('order_items')
+      .delete()
+      .eq('order_id', input.orderId);
 
-  if (deleteError) {
-    console.error('Error replacing billing order items:', deleteError);
-    return { success: false, error: deleteError.message };
-  }
+    if (deleteError) {
+      console.error('Error replacing billing order items:', deleteError);
+      return { success: false, error: deleteError.message };
+    }
 
-  const { data: existingProducts } = await adminSupabase.from('products').select('id');
-  const validProductIds = new Set(existingProducts?.map((product) => product.id) || []);
-  const orderItems = input.items.map((item) => ({
-    order_id: input.orderId,
-    product_id: validProductIds.has(item.id) ? item.id : null,
-    product_name: item.name,
-    price: item.finalPrice,
-    quantity: Math.max(1, item.quantity),
-  }));
+    const { data: existingProducts } = await adminSupabase.from('products').select('id');
+    const validProductIds = new Set(existingProducts?.map((product) => product.id) || []);
+    const orderItems = input.items.map((item) => ({
+      order_id: input.orderId,
+      product_id: validProductIds.has(item.id) ? item.id : null,
+      product_name: item.name,
+      price: item.finalPrice,
+      quantity: Math.max(1, item.quantity),
+    }));
 
-  const { error: itemsError } = await adminSupabase.from('order_items').insert(orderItems);
-  if (itemsError) {
-    console.error('Error inserting updated billing order items:', itemsError);
-    return { success: false, error: itemsError.message };
+    const { error: itemsError } = await adminSupabase.from('order_items').insert(orderItems);
+    if (itemsError) {
+      console.error('Error inserting updated billing order items:', itemsError);
+      return { success: false, error: itemsError.message };
+    }
   }
 
   revalidatePath('/admin/orders');
+  revalidatePath('/admin/billing');
   return { success: true };
 }

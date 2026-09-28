@@ -2,12 +2,11 @@
 
 import { useState, useMemo } from 'react';
 import type { Order, OrderItem, OrderStatus } from '@/types/order';
-import { updateOrderStatus } from '@/services/order.actions';
+import { deleteOrder, updateOrderStatus } from '@/services/order.actions';
 import { formatCurrency } from '@/lib/utils';
-import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown, Download, CreditCard, DollarSign, Edit2, FileText, Receipt, AlertCircle } from 'lucide-react';
+import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown, Download, DollarSign, Edit2, FileText, Receipt, AlertCircle, Trash2 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { generateInvoicePDF, generateGSTInvoicePDF } from '@/lib/invoicePdfGenerator';
-import { updateOrderPaymentDetails } from '@/services/order.actions';
 import { createGstAuditBill } from '@/services/gst-bill.actions';
 import { updateAdminBillingOrder, type BillingOrderItem } from '@/services/billing.actions';
 
@@ -107,15 +106,13 @@ Sri Arumugam Pyro Park
 export default function OrderManager({ orders }: { orders: Order[] }) {
   const [visibleOrders, setVisibleOrders] = useState<Order[]>(orders);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<Order | null>(null);
   const [editingProducts, setEditingProducts] = useState(false);
   const [editedItems, setEditedItems] = useState<OrderItem[]>([]);
   const [savingProducts, setSavingProducts] = useState(false);
-
-  // Payment Update Modal State
-  const [paymentModalOrder, setPaymentModalOrder] = useState<Order | null>(null);
-  const [newPaidAmount, setNewPaidAmount] = useState<string>('');
-  const [updatingPayment, setUpdatingPayment] = useState(false);
+  const [editedInvoiceNumber, setEditedInvoiceNumber] = useState('');
+  const [editedPaidAmount, setEditedPaidAmount] = useState('');
 
   // GST Audit Bill Generator Modal State
   const [gstModalOrder, setGstModalOrder] = useState<Order | null>(null);
@@ -142,6 +139,8 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
     setSelectedOrderForModal(order);
     setEditedItems(order.order_items ? [...order.order_items] : []);
     setEditingProducts(edit);
+    setEditedInvoiceNumber(order.invoice_number || order.id.split('-')[0].toUpperCase());
+    setEditedPaidAmount(getOrderPaymentBreakdown(order).paidAmount.toString());
   };
 
   const closeOrderItems = () => {
@@ -160,8 +159,22 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
     )));
   };
 
-  const handleSaveProductEdits = async () => {
-    if (!selectedOrderForModal || editedItems.length === 0) {
+  const handleSaveOrderEdits = async () => {
+    if (!selectedOrderForModal) return;
+
+    const invoiceNumber = editedInvoiceNumber.trim();
+    const paidAmount = Number(editedPaidAmount);
+    const hasItems = Boolean(selectedOrderForModal.order_items?.length);
+
+    if (!invoiceNumber) {
+      alert('Invoice number cannot be empty.');
+      return;
+    }
+    if (!Number.isFinite(paidAmount) || paidAmount < 0) {
+      alert('Please enter a valid paid amount.');
+      return;
+    }
+    if (hasItems && editedItems.length === 0) {
       alert('At least one product must remain on the order.');
       return;
     }
@@ -175,13 +188,15 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
       finalPrice: item.price,
       quantity: item.quantity,
     }));
-    const totalAmount = items.reduce((total, item) => total + item.finalPrice * item.quantity, 0);
-    const paidAmount = getOrderPaymentBreakdown(selectedOrderForModal).paidAmount;
+    const totalAmount = hasItems
+      ? items.reduce((total, item) => total + item.finalPrice * item.quantity, 0)
+      : selectedOrderForModal.total_amount;
     const result = await updateAdminBillingOrder({
       orderId: selectedOrderForModal.id,
       totalAmount,
       paidAmount,
-      items,
+      invoiceNumber,
+      ...(hasItems ? { items } : {}),
     });
     setSavingProducts(false);
 
@@ -192,10 +207,11 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
 
     const updatedOrder: Order = {
       ...selectedOrderForModal,
+      invoice_number: invoiceNumber,
       total_amount: totalAmount,
       paid_amount: paidAmount,
       remaining_amount: Math.max(0, totalAmount - paidAmount),
-      order_items: editedItems,
+      order_items: hasItems ? editedItems : selectedOrderForModal.order_items,
     };
     setVisibleOrders((currentOrders) => currentOrders.map((order) => (
       order.id === updatedOrder.id ? updatedOrder : order
@@ -364,35 +380,6 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
     };
   };
 
-  const handleOpenPaymentModal = (order: Order) => {
-    setPaymentModalOrder(order);
-    const breakdown = getOrderPaymentBreakdown(order);
-    setNewPaidAmount(breakdown.paidAmount.toString());
-  };
-
-  const handleSavePaymentUpdate = async () => {
-    if (!paymentModalOrder) return;
-    const paidVal = parseFloat(newPaidAmount);
-    if (isNaN(paidVal) || paidVal < 0) {
-      alert('Please enter a valid paid amount.');
-      return;
-    }
-
-    setUpdatingPayment(true);
-    const res = await updateOrderPaymentDetails(
-      paymentModalOrder.id,
-      paidVal,
-      paymentModalOrder.total_amount
-    );
-    setUpdatingPayment(false);
-
-    if (res.success) {
-      setPaymentModalOrder(null);
-    } else {
-      alert('Failed to update payment: ' + res.error);
-    }
-  };
-
   const handleSort = (col: string) => {
     if (sortColumn === col) {
       if (sortDirection === 'asc') {
@@ -458,6 +445,22 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
     if (!res.success) {
       alert('Failed to update status: ' + res.error);
     }
+  };
+
+  const handleDeleteOrder = async (order: Order) => {
+    const invoiceNumber = order.invoice_number || order.id.split('-')[0].toUpperCase();
+    if (!confirm(`Permanently delete order #${invoiceNumber}? Any linked GST audit bills will be retained.`)) return;
+
+    setDeletingOrderId(order.id);
+    const result = await deleteOrder(order.id);
+    setDeletingOrderId(null);
+
+    if (!result.success) {
+      alert('Failed to delete order: ' + result.error);
+      return;
+    }
+
+    setVisibleOrders((currentOrders) => currentOrders.filter((currentOrder) => currentOrder.id !== order.id));
   };
 
   return (
@@ -561,7 +564,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                     {renderSortIcon('status')}
                   </div>
                 </th>
-                <th className="py-3.5 px-4 text-right bg-slate-50 min-w-[130px] whitespace-nowrap">Bills & GST</th>
+                <th className="py-3.5 px-4 text-right bg-slate-50 min-w-[150px] whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -640,7 +643,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                           title="Edit products in this order"
                         >
                           <Edit2 className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Edit Products</span>
+                          <span>Edit Order</span>
                         </button>
                       </td>
 
@@ -663,14 +666,6 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                                   Fully Paid
                                 </span>
                               )}
-                              <button
-                                onClick={() => handleOpenPaymentModal(order)}
-                                className="inline-flex items-center gap-1 text-[9px] font-black text-amber-900 hover:text-white bg-amber-100 hover:bg-amber-600 px-2 py-0.5 rounded-md border border-amber-300 transition-all cursor-pointer hover:scale-105 shadow-2xs"
-                                title="Click to edit paid amount & balance"
-                              >
-                                <Edit2 className="w-2.5 h-2.5" />
-                                <span>Edit</span>
-                              </button>
                             </div>
                           );
                         })()}
@@ -704,6 +699,14 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                             <FileText className="w-3.5 h-3.5 text-white" />
                             <span>GST Bill</span>
                           </button>
+                          <button
+                            onClick={() => handleDeleteOrder(order)}
+                            disabled={deletingOrderId === order.id}
+                            className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center shrink-0"
+                            title="Delete order"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -734,11 +737,11 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-black text-lg text-slate-900">
-                      Order #{selectedOrderForModal.id.split('-')[0].toUpperCase()}
+                      Order #{selectedOrderForModal.invoice_number || selectedOrderForModal.id.split('-')[0].toUpperCase()}
                     </h3>
                     {editingProducts && (
                       <span className="text-[10px] uppercase tracking-wider font-black text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
-                        Editing Products
+                        Editing Order
                       </span>
                     )}
                     <span className="text-xs text-slate-400 font-mono">
@@ -757,6 +760,32 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {editingProducts && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 shrink-0">
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">Invoice Number</label>
+                  <input
+                    type="text"
+                    maxLength={50}
+                    value={editedInvoiceNumber}
+                    onChange={(event) => setEditedInvoiceNumber(event.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono font-bold text-slate-900 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">Paid Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editedPaidAmount}
+                    onChange={(event) => setEditedPaidAmount(event.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono font-bold text-slate-900 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Customer Details Summary Banner */}
             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 text-xs text-slate-700 space-y-1.5 shrink-0">
@@ -882,104 +911,16 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 </button>
                 {editingProducts && (
                   <button
-                    onClick={handleSaveProductEdits}
-                    disabled={savingProducts || editedItems.length === 0}
+                    onClick={handleSaveOrderEdits}
+                    disabled={savingProducts}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer disabled:opacity-50"
                   >
-                    {savingProducts ? 'Saving...' : 'Save Products'}
+                    {savingProducts ? 'Saving...' : 'Save Order'}
                   </button>
                 )}
               </div>
             </div>
 
-          </div>
-        </div>
-      )}
-
-      {/* Payment Update Modal */}
-      {paymentModalOrder && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-lg text-slate-900">Update Order Payment</h3>
-                  <p className="text-xs text-slate-500 font-medium">Order #{paymentModalOrder.invoice_number || paymentModalOrder.id.split('-')[0].toUpperCase()}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setPaymentModalOrder(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
-              <div className="flex justify-between text-slate-600">
-                <span>Customer:</span>
-                <strong className="text-slate-900">{paymentModalOrder.customer_name}</strong>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Order Total Amount:</span>
-                <strong className="text-slate-900 font-extrabold text-sm">{formatCurrency(paymentModalOrder.total_amount)}</strong>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
-                Enter Amount Received / Paid (₹):
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={paymentModalOrder.total_amount}
-                value={newPaidAmount}
-                onChange={(e) => setNewPaidAmount(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl font-mono font-bold text-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs"
-                placeholder="Enter paid amount"
-              />
-
-              <div className="flex items-center justify-between text-xs pt-1">
-                <button
-                  type="button"
-                  onClick={() => setNewPaidAmount(paymentModalOrder.total_amount.toString())}
-                  className="text-amber-700 font-extrabold hover:underline cursor-pointer"
-                >
-                  ⚡ Mark Fully Paid ({formatCurrency(paymentModalOrder.total_amount)})
-                </button>
-                {(() => {
-                  const paidVal = parseFloat(newPaidAmount) || 0;
-                  const remVal = Math.max(0, paymentModalOrder.total_amount - paidVal);
-                  return (
-                    <span className={`font-bold ${remVal > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                      Pending: {formatCurrency(remVal)}
-                    </span>
-                  );
-                })()}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setPaymentModalOrder(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-extrabold text-xs hover:bg-slate-100 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSavePaymentUpdate}
-                disabled={updatingPayment}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-md cursor-pointer hover:scale-105 transition-all disabled:opacity-50"
-              >
-                {updatingPayment ? 'Saving Update...' : 'Save Payment'}
-              </button>
-            </div>
           </div>
         </div>
       )}

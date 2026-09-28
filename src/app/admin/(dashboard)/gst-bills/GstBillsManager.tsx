@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from 'react';
 import type { GstAuditBill } from '@/services/gst-bill.actions';
-import { createGstAuditBill, deleteGstAuditBill } from '@/services/gst-bill.actions';
+import { createGstAuditBill, deleteGstAuditBill, updateGstAuditBillNumber } from '@/services/gst-bill.actions';
 import { formatCurrency } from '@/lib/utils';
 import { generateGSTInvoicePDF } from '@/lib/invoicePdfGenerator';
 import {
   FileText,
+  Edit2,
+  Check,
   Plus,
   Trash2,
   Download,
@@ -35,6 +37,9 @@ export default function GstBillsManager({ initialBills }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingBillId, setEditingBillId] = useState<string | null>(null);
+  const [editedBillNumber, setEditedBillNumber] = useState('');
+  const [updatingBillId, setUpdatingBillId] = useState<string | null>(null);
 
   // Form State for creating a Standalone GST Bill
   // Form State for creating a Standalone GST Bill
@@ -241,6 +246,23 @@ export default function GstBillsManager({ initialBills }: Props) {
     }
   };
 
+  const handleSaveBillNumber = async (bill: GstAuditBill) => {
+    setUpdatingBillId(bill.id);
+    const result = await updateGstAuditBillNumber(bill.id, editedBillNumber);
+    setUpdatingBillId(null);
+
+    if (!result.success || !result.billNumber) {
+      alert('Invoice number update failed: ' + result.error);
+      return;
+    }
+
+    setBills((currentBills) => currentBills.map((currentBill) => (
+      currentBill.id === bill.id ? { ...currentBill, bill_number: result.billNumber! } : currentBill
+    )));
+    setEditingBillId(null);
+    setEditedBillNumber('');
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto w-full pb-12">
       
@@ -374,9 +396,60 @@ export default function GstBillsManager({ initialBills }: Props) {
                 return (
                   <tr key={bill.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4">
-                      <span className="font-mono font-black text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 inline-block text-xs shadow-2xs">
-                        {bill.bill_number}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {editingBillId === bill.id ? (
+                          <>
+                            <input
+                              type="text"
+                              autoFocus
+                              maxLength={50}
+                              value={editedBillNumber}
+                              onChange={(event) => setEditedBillNumber(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') void handleSaveBillNumber(bill);
+                                if (event.key === 'Escape') setEditingBillId(null);
+                              }}
+                              aria-label="GST invoice number"
+                              className="w-36 min-w-0 font-mono font-bold px-2 py-1 rounded-lg border border-amber-300 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleSaveBillNumber(bill)}
+                              disabled={updatingBillId === bill.id || !editedBillNumber.trim()}
+                              className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 cursor-pointer"
+                              title="Save invoice number"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingBillId(null)}
+                              disabled={updatingBillId === bill.id}
+                              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                              title="Cancel editing"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-mono font-black text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 inline-block text-xs shadow-2xs">
+                              {bill.bill_number}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingBillId(bill.id);
+                                setEditedBillNumber(bill.bill_number);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-amber-700 hover:bg-amber-50 cursor-pointer"
+                              title="Edit invoice number"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                       <span className="text-[10px] font-medium text-slate-500 block mt-1 whitespace-nowrap">
                         {formattedDate}
                       </span>

@@ -216,6 +216,35 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   return { success: true };
 }
 
+export async function deleteOrder(orderId: string) {
+  if (!orderId) return { success: false, error: 'Order ID is required.' };
+
+  const { error: auditBillError } = await adminSupabase
+    .from('gst_audit_bills')
+    .update({ order_id: null })
+    .eq('order_id', orderId);
+
+  if (auditBillError) return { success: false, error: auditBillError.message };
+
+  const { error: itemsError } = await adminSupabase
+    .from('order_items')
+    .delete()
+    .eq('order_id', orderId);
+
+  if (itemsError) return { success: false, error: itemsError.message };
+
+  const { error } = await adminSupabase
+    .from('orders')
+    .delete()
+    .eq('id', orderId);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath('/admin/orders');
+  revalidatePath('/admin');
+  return { success: true };
+}
+
 export async function updateOrderPaymentDetails(
   orderId: string,
   paidAmount: number,
