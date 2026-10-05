@@ -381,6 +381,10 @@ export interface Database {
         Args: { p_items: Json };
         Returns: undefined;
       };
+      decrement_order_inventory: {
+        Args: { p_product_items: Json; p_gift_box_items: Json };
+        Returns: undefined;
+      };
     };
     Enums: {
       order_status: 'pending' | 'confirmed' | 'processing' | 'dispatched' | 'delivered' | 'cancelled' | 'refunded';

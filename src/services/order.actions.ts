@@ -89,27 +89,33 @@ export async function placeOrder(input: PlaceOrderInput) {
     return { success: false, error: 'One or more cart products are invalid. Refresh the catalog and try again.' };
   }
 
-  const productIds = Array.from(new Set(items.map((item: any) => String(item.id))));
-  const { data: inventoryProducts, error: inventoryError } = await adminSupabase
-    .from('products')
-    .select('id, name, stock')
-    .in('id', productIds);
+  const itemIds = Array.from(new Set(items.map((item: any) => String(item.id))));
+  const [productsResult, giftBoxesResult] = await Promise.all([
+    adminSupabase.from('products').select('id, name, stock').in('id', itemIds),
+    adminSupabase.from('gift_boxes').select('id, name, stock').in('id', itemIds),
+  ]);
 
-  if (inventoryError) return { success: false, error: `Could not verify product inventory: ${inventoryError.message}` };
+  if (productsResult.error) return { success: false, error: `Could not verify product inventory: ${productsResult.error.message}` };
+  if (giftBoxesResult.error) return { success: false, error: `Could not verify combo box inventory: ${giftBoxesResult.error.message}` };
 
-  const productsById = new Map((inventoryProducts ?? []).map((product) => [product.id, product]));
-  const stockItems: { product_id: string; quantity: number }[] = [];
+  const productsById = new Map((productsResult.data ?? []).map((product) => [product.id, product]));
+  const giftBoxesById = new Map((giftBoxesResult.data ?? []).map((box) => [box.id, box]));
+  const productStockItems: { product_id: string; quantity: number }[] = [];
+  const giftBoxStockItems: { gift_box_id: string; quantity: number }[] = [];
   for (const item of items as any[]) {
     const product = productsById.get(item.id);
+    const giftBox = giftBoxesById.get(item.id);
     const quantity = Number(item.quantity);
-    if (!product) return { success: false, error: `${item.name} is no longer in the product inventory.` };
+    const inventoryItem = product ?? giftBox;
+    if (!inventoryItem) return { success: false, error: `${item.name} is no longer available in inventory.` };
     if (!Number.isInteger(quantity) || quantity < 1) {
       return { success: false, error: `Invalid quantity for ${item.name}.` };
     }
-    if (quantity > product.stock) {
-      return { success: false, error: `Only ${product.stock} units of ${product.name} are currently in stock.` };
+    if (quantity > inventoryItem.stock) {
+      return { success: false, error: `Only ${inventoryItem.stock} units of ${inventoryItem.name} are currently in stock.` };
     }
-    stockItems.push({ product_id: product.id, quantity });
+    if (product) productStockItems.push({ product_id: product.id, quantity });
+    else giftBoxStockItems.push({ gift_box_id: inventoryItem.id, quantity });
   }
 
   const notesText = [
@@ -209,7 +215,10 @@ export async function placeOrder(input: PlaceOrderInput) {
     }
   }
 
-  const { error: stockError } = await adminSupabase.rpc('decrement_product_stock', { p_items: stockItems });
+  const { error: stockError } = await adminSupabase.rpc('decrement_order_inventory', {
+    p_product_items: productStockItems,
+    p_gift_box_items: giftBoxStockItems,
+  });
   if (stockError) {
     console.error('Error decrementing web order inventory:', stockError);
     await deleteIncompleteOrder(order.id);
@@ -220,6 +229,8 @@ export async function placeOrder(input: PlaceOrderInput) {
 
   revalidatePath('/admin/orders');
   revalidatePath('/admin/products');
+  revalidatePath('/admin/gift-boxes');
+  revalidatePath('/', 'layout');
   revalidatePath('/admin/billing');
   revalidatePath('/admin');
 

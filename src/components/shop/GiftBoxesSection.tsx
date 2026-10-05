@@ -35,7 +35,32 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    let scrollFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      setMounted(true);
+
+      if (window.location.pathname !== '/' || (window.location.hash && window.location.hash !== '#gift-boxes')) return;
+
+      if (!window.location.hash) {
+        window.history.replaceState(
+          window.history.state,
+          '',
+          `${window.location.pathname}${window.location.search}#gift-boxes`
+        );
+      }
+
+      scrollFrame = window.requestAnimationFrame(() => {
+        document.getElementById('gift-boxes')?.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+          block: 'start',
+        });
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(scrollFrame);
+    };
   }, []);
 
   if (!giftBoxes || giftBoxes.length === 0) return null;
@@ -77,7 +102,7 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
   };
 
   return (
-    <section id="gift-boxes" className="py-12 sm:py-16 bg-gradient-to-b from-amber-50/40 via-orange-50/20 to-white rounded-3xl my-8 border border-amber-200/80 shadow-xs px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <section id="gift-boxes" className="scroll-mt-24 py-12 sm:py-16 bg-gradient-to-b from-amber-50/40 via-orange-50/20 to-white rounded-3xl my-8 border border-amber-200/80 shadow-xs px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       
       {/* Background Subtle Flare */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
