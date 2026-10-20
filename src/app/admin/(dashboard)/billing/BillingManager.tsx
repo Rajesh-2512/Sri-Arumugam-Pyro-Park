@@ -54,6 +54,7 @@ interface HeldBill {
   phone: string;
   items: BillingOrderItem[];
   overallDiscountPercent: number;
+  extraDiscountAmount?: number;
   gstMode: 'none' | 'exclusive' | 'inclusive';
   gstRate: number;
   paymentMode: 'cash' | 'upi' | 'card' | 'bank_transfer';
@@ -68,6 +69,7 @@ interface SavedOrderReceipt {
   phone: string;
   subtotal: number;
   discount: number;
+  extraDiscount?: number;
   gstAmount: number;
   grandTotal: number;
   paymentMode: string;
@@ -109,6 +111,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
   const [gstRate, setGstRate] = useState<number>(18);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'card' | 'bank_transfer'>('cash');
   const [overallDiscountPercent, setOverallDiscountPercent] = useState<number>(0);
+  const [extraDiscountAmount, setExtraDiscountAmount] = useState<number>(0);
   const [cashTendered, setCashTendered] = useState<string>('');
   const [notes, setNotes] = useState('');
 
@@ -272,6 +275,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
       phone: phone || 'N/A',
       items: [...lineItems],
       overallDiscountPercent,
+      extraDiscountAmount,
       gstMode,
       gstRate,
       paymentMode,
@@ -281,6 +285,8 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
     setLineItems([]);
     setCustomerName('Walk-in Counter Buyer');
     setPhone('9999999999');
+    setOverallDiscountPercent(0);
+    setExtraDiscountAmount(0);
     setIsCheckoutOpen(false);
     setMessage({ type: 'success', text: `Ticket #${newHeld.id} saved to Held Bills buffer!` });
   };
@@ -290,6 +296,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
     setCustomerName(held.customerName);
     setPhone(held.phone);
     setOverallDiscountPercent(held.overallDiscountPercent);
+    setExtraDiscountAmount(held.extraDiscountAmount || 0);
     setGstMode(held.gstMode);
     setGstRate(held.gstRate);
     setPaymentMode(held.paymentMode);
@@ -301,7 +308,8 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
   // Financial Calculations
   const rawSubtotal = lineItems.reduce((acc, item) => acc + item.finalPrice * item.quantity, 0);
   const discountAmount = (rawSubtotal * overallDiscountPercent) / 100;
-  const discountedSubtotal = Math.max(0, rawSubtotal - discountAmount);
+  const totalDiscount = discountAmount + extraDiscountAmount;
+  const discountedSubtotal = Math.max(0, rawSubtotal - totalDiscount);
 
   let gstAmount = 0;
   let grandTotal = discountedSubtotal;
@@ -338,8 +346,12 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
     const receiptCustomerName = receipt?.customerName ?? customerName;
     const receiptPhone = receipt?.phone ?? phone;
     const receiptGrandTotal = receipt?.grandTotal ?? grandTotal;
+    const receiptSubtotal = receipt?.subtotal ?? rawSubtotal;
+    const receiptDiscount = receipt?.discount ?? discountAmount;
+    const receiptDiscountPercent = receipt?.overallDiscountPercent ?? overallDiscountPercent;
+    const receiptExtraDiscount = receipt?.extraDiscount ?? extraDiscountAmount;
     const receiptDiscountedSubtotal = receipt
-      ? receipt.subtotal - receipt.discount
+      ? Math.max(0, receipt.subtotal - receipt.discount - (receipt.extraDiscount || 0))
       : discountedSubtotal;
     const receiptGstAmount = receipt?.gstAmount ?? gstAmount;
     const receiptPaidAmount = receipt?.paidAmount ?? (paidAmountInput ? parseFloat(paidAmountInput) : receiptGrandTotal);
@@ -361,11 +373,15 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
           aadhar_pan: aadharPan || null,
           paid_amount: paidVal,
           remaining_amount: remVal,
+          subtotal: receiptSubtotal,
+          discount_amount: receiptDiscount,
+          discount_percent: receiptDiscountPercent,
+          extra_discount: receiptExtraDiscount,
           total_amount: receiptGrandTotal,
           created_at: createdAtDate || new Date().toISOString(),
           order_items: receiptItems.map((item) => ({
             product_name: item.name,
-            price: item.finalPrice,
+            price: item.price ?? item.finalPrice,
             quantity: item.quantity,
           })),
         },
@@ -397,11 +413,15 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
         aadhar_pan: aadharPan || null,
         paid_amount: paidVal,
         remaining_amount: remVal,
+        subtotal: receiptSubtotal,
+        discount_amount: receiptDiscount,
+        discount_percent: receiptDiscountPercent,
+        extra_discount: receiptExtraDiscount,
         total_amount: receiptGrandTotal,
         created_at: createdAtDate || new Date().toISOString(),
         order_items: receiptItems.map((item) => ({
           product_name: item.name,
-          price: item.finalPrice,
+          price: item.price ?? item.finalPrice,
           quantity: item.quantity,
         })),
       });
@@ -424,6 +444,12 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
 
     const paidVal = paidAmountInput ? parseFloat(paidAmountInput) : grandTotal;
 
+    const discountNoteParts = [
+      overallDiscountPercent > 0 ? `Discount: ${overallDiscountPercent}% (₹${discountAmount})` : null,
+      extraDiscountAmount > 0 ? `Extra Discount: ₹${extraDiscountAmount}` : null,
+      notes || null,
+    ].filter(Boolean).join(' | ');
+
     const res = await createAdminBillingOrder({
       customer_name: customerName,
       phone,
@@ -436,7 +462,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
       gst_amount: gstAmount,
       payment_mode: paymentMode,
       paid_amount: paidVal,
-      notes,
+      notes: discountNoteParts,
       total_amount: grandTotal,
       items: lineItems,
     });
@@ -458,6 +484,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
         phone,
         subtotal: rawSubtotal,
         discount: discountAmount,
+        extraDiscount: extraDiscountAmount,
         gstAmount,
         grandTotal,
         paymentMode,
@@ -480,6 +507,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
       setGstin('');
       setCashTendered('');
       setOverallDiscountPercent(0);
+      setExtraDiscountAmount(0);
       setGstMode('none');
       setIsCheckoutOpen(false);
       router.refresh();
@@ -491,7 +519,8 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
   const recalculateSavedReceipt = (receipt: SavedOrderReceipt, items: BillingOrderItem[]): SavedOrderReceipt => {
     const subtotal = items.reduce((total, item) => total + item.finalPrice * item.quantity, 0);
     const discount = (subtotal * receipt.overallDiscountPercent) / 100;
-    const discountedSubtotal = Math.max(0, subtotal - discount);
+    const extraDiscount = receipt.extraDiscount || 0;
+    const discountedSubtotal = Math.max(0, subtotal - discount - extraDiscount);
     const gstAmount = receipt.gstMode === 'exclusive'
       ? (discountedSubtotal * receipt.gstRate) / 100
       : receipt.gstMode === 'inclusive'
@@ -499,7 +528,7 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
       : 0;
     const grandTotal = receipt.gstMode === 'exclusive' ? discountedSubtotal + gstAmount : discountedSubtotal;
 
-    return { ...receipt, items, subtotal, discount, gstAmount, grandTotal };
+    return { ...receipt, items, subtotal, discount, extraDiscount, gstAmount, grandTotal };
   };
 
   const startSavedOrderEdit = () => {
@@ -701,6 +730,13 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
                   </div>
                 )}
 
+                {extraDiscountAmount > 0 && (
+                  <div className="flex justify-between text-rose-700 font-semibold">
+                    <span>Extra Flat Discount:</span>
+                    <span>- {formatCurrency(extraDiscountAmount)}</span>
+                  </div>
+                )}
+
                 {gstMode !== 'none' && (
                   <div className="flex justify-between text-amber-800 font-semibold">
                     <span>GST ({gstRate}% breakdown):</span>
@@ -863,6 +899,19 @@ export default function BillingManager({ products, giftBoxes }: BillingManagerPr
                           className="w-16 bg-white border border-amber-200 rounded-lg px-2 py-1 text-xs text-slate-900 font-mono font-black focus:outline-none focus:border-amber-500 text-center"
                         />
                         <span className="text-xs font-black text-amber-900">%</span>
+                      </div>
+
+                      {/* EXTRA FLAT AMOUNT DISCOUNT INPUT (Rupees) */}
+                      <div className="flex items-center gap-1 bg-rose-50 border border-rose-300 rounded-xl px-3 py-1.5 shadow-2xs">
+                        <span className="text-xs font-black text-rose-900">Extra Flat ₹:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={extraDiscountAmount || ''}
+                          onChange={(e) => setExtraDiscountAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                          placeholder="0"
+                          className="w-20 bg-white border border-rose-200 rounded-lg px-2 py-1 text-xs text-slate-900 font-mono font-black focus:outline-none focus:border-rose-500 text-center"
+                        />
                       </div>
                     </div>
                   </div>

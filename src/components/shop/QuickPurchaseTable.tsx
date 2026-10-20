@@ -79,11 +79,13 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
             const itemSubtotal = finalPrice * currentQty;
             const imageUrl = getProductImage(product.image_url);
 
+            const isOutOfStock = product.stock <= 0;
             const handleQtyChange = (newQty: number) => {
-              if (newQty < 0) return;
+              if (isOutOfStock || newQty < 0) return;
+              const targetQty = Math.min(newQty, product.stock);
               if (cartItem) {
-                updateQuantity(product.id, newQty);
-              } else if (newQty > 0) {
+                updateQuantity(product.id, targetQty);
+              } else if (targetQty > 0) {
                 addItem({
                   id: product.id,
                   name: product.name,
@@ -92,8 +94,8 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
                   finalPrice,
                   stock: product.stock,
                 });
-                if (newQty > 1) {
-                  updateQuantity(product.id, newQty);
+                if (targetQty > 1) {
+                  updateQuantity(product.id, targetQty);
                 }
               }
             };
@@ -175,7 +177,7 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
 
                 {/* Quantity Controls */}
                 <div className="pt-1 flex items-center justify-between">
-                  {product.stock === 0 ? (
+                  {isOutOfStock ? (
                     <span className="w-full text-center text-red-600 font-bold text-xs bg-red-50 py-2 rounded-xl border border-red-200">
                       Out of Stock
                     </span>
@@ -194,14 +196,17 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
                         <input
                           type="number"
                           min="0"
+                          max={product.stock}
                           value={currentQty}
-                          onChange={(e) => handleQtyChange(parseInt(e.target.value) || 0)}
+                          onChange={(e) => handleQtyChange(Math.min(product.stock, Math.max(0, parseInt(e.target.value) || 0)))}
                           className="w-12 text-center font-black text-sm text-slate-900 bg-transparent focus:outline-none"
                         />
                         <button
                           type="button"
+                          disabled={currentQty >= product.stock}
                           onClick={() => handleQtyChange(currentQty + 1)}
-                          className="w-10 h-10 flex items-center justify-center text-slate-600 hover:text-emerald-600 hover:bg-slate-100 cursor-pointer active:scale-95 transition-all"
+                          className="w-10 h-10 flex items-center justify-center text-slate-600 hover:text-emerald-600 hover:bg-slate-100 cursor-pointer active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={currentQty >= product.stock ? `Max stock reached (${product.stock})` : 'Add one more'}
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -255,11 +260,13 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
                   const itemSubtotal = finalPrice * currentQty;
                   const imageUrl = getProductImage(product.image_url);
 
+                  const isOutOfStock = product.stock <= 0;
                   const handleQtyChange = (newQty: number) => {
-                    if (newQty < 0) return;
+                    if (isOutOfStock || newQty < 0) return;
+                    const targetQty = Math.min(newQty, product.stock);
                     if (cartItem) {
-                      updateQuantity(product.id, newQty);
-                    } else if (newQty > 0) {
+                      updateQuantity(product.id, targetQty);
+                    } else if (targetQty > 0) {
                       addItem({
                         id: product.id,
                         name: product.name,
@@ -268,8 +275,8 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
                         finalPrice,
                         stock: product.stock,
                       });
-                      if (newQty > 1) {
-                        updateQuantity(product.id, newQty);
+                      if (targetQty > 1) {
+                        updateQuantity(product.id, targetQty);
                       }
                     }
                   };
@@ -346,7 +353,7 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
 
                       {/* Interactive Quantity Selector */}
                       <td className="py-3.5 px-4 text-center">
-                        {product.stock === 0 ? (
+                        {isOutOfStock ? (
                           <span className="text-red-500 font-bold text-[11px] bg-red-50 px-2.5 py-1 rounded-lg border border-red-200">
                             Out of Stock
                           </span>
@@ -363,14 +370,17 @@ export default function QuickPurchaseTable({ products, globalDiscount }: Props) 
                             <input
                               type="number"
                               min="0"
+                              max={product.stock}
                               value={currentQty}
-                              onChange={(e) => handleQtyChange(parseInt(e.target.value) || 0)}
+                              onChange={(e) => handleQtyChange(Math.min(product.stock, Math.max(0, parseInt(e.target.value) || 0)))}
                               className="w-11 text-center font-black text-xs sm:text-sm text-slate-900 bg-transparent focus:outline-none"
                             />
                             <button
                               type="button"
+                              disabled={currentQty >= product.stock}
                               onClick={() => handleQtyChange(currentQty + 1)}
-                              className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 cursor-pointer transition-colors"
+                              className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title={currentQty >= product.stock ? `Max stock reached (${product.stock})` : 'Add one more'}
                             >
                               <Plus className="w-4 h-4" />
                             </button>

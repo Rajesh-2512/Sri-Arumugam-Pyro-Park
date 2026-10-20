@@ -10,8 +10,9 @@ import {
   getOrderHistoryFromCookie,
   CustomerOrderHistoryItem,
 } from '@/lib/customer-cookies';
-import { ShoppingBag, ArrowRight, Trash2, Plus, Minus, ArrowLeft, Package, Phone, Search, Loader2, Clock, FileText, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, ArrowRight, Trash2, Plus, Minus, ArrowLeft, Package, Phone, Search, Loader2, Clock, FileText, CheckCircle2, Download } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { generateCartEstimatePDF } from '@/lib/invoicePdfGenerator';
 
 export default function CartClient() {
   const { items, removeItem, updateQuantity, totalAmount, totalItems } = useCartStore();
@@ -20,6 +21,7 @@ export default function CartClient() {
   const [dbOrders, setDbOrders] = useState<any[]>([]);
   const [cookieOrders, setCookieOrders] = useState<CustomerOrderHistoryItem[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [downloadingCartPdf, setDownloadingCartPdf] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -51,6 +53,36 @@ export default function CartClient() {
     fetchDbOrders(phoneInput);
   };
 
+  const handleDownloadCartPdf = async () => {
+    if (items.length === 0) return;
+    setDownloadingCartPdf(true);
+    try {
+      const savedCustomer = getCustomerDetailsFromCookie();
+      await generateCartEstimatePDF(
+        items.map((i) => ({
+          id: i.id,
+          name: i.name,
+          price: i.price,
+          finalPrice: i.finalPrice,
+          quantity: i.quantity,
+        })),
+        totalAmount,
+        {
+          customerName: savedCustomer?.customer_name,
+          phone: phoneInput || savedCustomer?.phone,
+          city: savedCustomer?.city,
+          state: savedCustomer?.state,
+          pincode: savedCustomer?.pincode,
+        },
+        true
+      );
+    } catch (err) {
+      console.error('Failed to download cart estimate PDF:', err);
+    } finally {
+      setDownloadingCartPdf(false);
+    }
+  };
+
   if (!mounted) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
@@ -63,7 +95,7 @@ export default function CartClient() {
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-10">
       
       {/* Page Title Header */}
-      <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/80 pb-4 gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1b2342] flex items-center gap-3">
             <ShoppingBag className="w-7 h-7 text-amber-600" /> Your Shopping Cart
@@ -72,12 +104,25 @@ export default function CartClient() {
             {totalItems} item{totalItems > 1 ? 's' : ''} in your current cart session
           </p>
         </div>
-        <Link
-          href="/"
-          className="text-xs font-bold text-slate-500 hover:text-amber-600 flex items-center gap-1.5 transition-colors uppercase tracking-wider"
-        >
-          <ArrowLeft className="w-4 h-4" /> Continue Shopping
-        </Link>
+        <div className="flex items-center gap-3">
+          {items.length > 0 && (
+            <button
+              onClick={handleDownloadCartPdf}
+              disabled={downloadingCartPdf}
+              className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 hover:border-amber-400 text-slate-800 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-2xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              title="Download Cart as Estimate PDF"
+            >
+              <Download className={`w-3.5 h-3.5 text-amber-600 ${downloadingCartPdf ? 'animate-bounce' : ''}`} />
+              <span>{downloadingCartPdf ? 'Downloading...' : 'Download Cart PDF'}</span>
+            </button>
+          )}
+          <Link
+            href="/"
+            className="text-xs font-bold text-slate-500 hover:text-amber-600 flex items-center gap-1.5 transition-colors uppercase tracking-wider"
+          >
+            <ArrowLeft className="w-4 h-4" /> Continue Shopping
+          </Link>
+        </div>
       </div>
 
       {/* Cart Items List or Empty Cart Banner */}
@@ -196,12 +241,24 @@ export default function CartClient() {
               )}
             </div>
 
-            <Link
-              href="/checkout"
-              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-sm uppercase tracking-wider shadow-lg shadow-orange-500/25 flex items-center justify-center gap-3 transition-all hover:scale-[1.01]"
-            >
-              Proceed to Checkout <ArrowRight className="w-5 h-5" />
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <button
+                type="button"
+                onClick={handleDownloadCartPdf}
+                disabled={downloadingCartPdf}
+                className="w-full sm:w-1/2 py-4 px-5 rounded-2xl bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-amber-400 text-slate-800 font-extrabold text-xs uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition-all hover:scale-[1.01] cursor-pointer disabled:opacity-50"
+              >
+                <Download className={`w-4 h-4 text-amber-600 ${downloadingCartPdf ? 'animate-bounce' : ''}`} />
+                <span>{downloadingCartPdf ? 'Generating PDF...' : 'Download Estimate PDF'}</span>
+              </button>
+
+              <Link
+                href="/checkout"
+                className="w-full sm:w-1/2 py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2.5 transition-all hover:scale-[1.01]"
+              >
+                <span>Proceed to Checkout</span> <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </div>
       )}

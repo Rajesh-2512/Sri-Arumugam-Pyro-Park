@@ -2,9 +2,12 @@
 
 import { useState, useMemo } from 'react';
 import type { Order, OrderItem, OrderStatus } from '@/types/order';
+import type { Product } from '@/types/product';
+import type { GiftBox } from '@/types/giftbox';
 import { deleteOrder, updateOrderStatus } from '@/services/order.actions';
 import { formatCurrency } from '@/lib/utils';
-import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown, Download, DollarSign, Edit2, FileText, Receipt, AlertCircle, Trash2 } from 'lucide-react';
+import { calculateFinalPrice } from '@/lib/discount';
+import { Phone, MapPin, MessageSquare, Check, Clock, Truck, CheckCircle2, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, X, Eye, Package, ChevronDown, Download, DollarSign, Edit2, FileText, Receipt, AlertCircle, Trash2, Plus, Minus, Percent, CreditCard } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { generateInvoicePDF, generateGSTInvoicePDF } from '@/lib/invoicePdfGenerator';
 import { createGstAuditBill } from '@/services/gst-bill.actions';
@@ -103,7 +106,13 @@ Sri Arumugam Pyro Park
   return `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(text)}`;
 }
 
-export default function OrderManager({ orders }: { orders: Order[] }) {
+interface OrderManagerProps {
+  orders: Order[];
+  products?: Product[];
+  giftBoxes?: GiftBox[];
+}
+
+export default function OrderManager({ orders, products = [], giftBoxes = [] }: OrderManagerProps) {
   const [visibleOrders, setVisibleOrders] = useState<Order[]>(orders);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
@@ -113,6 +122,16 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
   const [savingProducts, setSavingProducts] = useState(false);
   const [editedInvoiceNumber, setEditedInvoiceNumber] = useState('');
   const [editedPaidAmount, setEditedPaidAmount] = useState('');
+  const [editedDiscountPercent, setEditedDiscountPercent] = useState<number>(0);
+  const [editedExtraDiscount, setEditedExtraDiscount] = useState<string>('0');
+
+  // Search & Catalog Adder in Edit Modal
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [showCatalogPicker, setShowCatalogPicker] = useState(false);
+  const [showCustomItemForm, setShowCustomItemForm] = useState(false);
+  const [customItemName, setCustomItemName] = useState('');
+  const [customItemPrice, setCustomItemPrice] = useState('');
+  const [customItemQty, setCustomItemQty] = useState('1');
 
   // GST Audit Bill Generator Modal State
   const [gstModalOrder, setGstModalOrder] = useState<Order | null>(null);
@@ -135,28 +154,151 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+  // Live calculations for Edit Mode
+  const editedSubtotal = useMemo(() => {
+    return editedItems.reduce((acc, item) => acc + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+  }, [editedItems]);
+
+  const editedDiscountAmount = useMemo(() => {
+    return Math.round(((editedSubtotal * editedDiscountPercent) / 100) * 100) / 100;
+  }, [editedSubtotal, editedDiscountPercent]);
+
+  const editedExtraDiscountAmount = useMemo(() => {
+    const val = parseFloat(editedExtraDiscount);
+    return isNaN(val) || val < 0 ? 0 : val;
+  }, [editedExtraDiscount]);
+
+  const editedTotalAmount = useMemo(() => {
+    return Math.max(0, Math.round((editedSubtotal - editedDiscountAmount - editedExtraDiscountAmount) * 100) / 100);
+  }, [editedSubtotal, editedDiscountAmount, editedExtraDiscountAmount]);
+
+  const filteredCatalogItems = useMemo(() => {
+    if (!catalogSearch.trim()) return [];
+    const q = catalogSearch.toLowerCase().trim();
+    const matchedProducts = products
+      .filter((p) => p.name.toLowerCase().includes(q) || (p.categories?.name && p.categories.name.toLowerCase().includes(q)))
+      .slice(0, 8)
+      .map((p) => ({ ...p, isCombo: false }));
+    const matchedCombos = giftBoxes
+      .filter((b) => b.name.toLowerCase().includes(q))
+      .slice(0, 4)
+      .map((b) => ({ ...b, isCombo: true }));
+    return [...matchedProducts, ...matchedCombos];
+  }, [catalogSearch, products, giftBoxes]);
+
   const openOrderItems = (order: Order, edit = false) => {
     setSelectedOrderForModal(order);
-    setEditedItems(order.order_items ? [...order.order_items] : []);
+    const items = order.order_items ? [...order.order_items] : [];
+    setEditedItems(items);
     setEditingProducts(edit);
     setEditedInvoiceNumber(order.invoice_number || order.id.split('-')[0].toUpperCase());
-    setEditedPaidAmount(getOrderPaymentBreakdown(order).paidAmount.toString());
+    const breakdown = getOrderPaymentBreakdown(order);
+    setEditedPaidAmount(breakdown.paidAmount.toString());
+
+    // Parse discount & extra discount from notes or calculate
+    let initDiscountPct = 0;
+    let initExtraDisc = 0;
+    if (order.notes) {
+      const pctMatch = order.notes.match(/Discount:\s*([\d.]+)%/i);
+      if (pctMatch && pctMatch[1]) initDiscountPct = parseFloat(pctMatch[1]) || 0;
+
+      const extraMatch = order.notes.match(/Extra Discount:\s*₹?\s*([\d.]+)/i);
+      if (extraMatch && extraMatch[1]) initExtraDisc = parseFloat(extraMatch[1]) || 0;
+    }
+
+    const itemsSubtotal = items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+    if (initDiscountPct === 0 && initExtraDisc === 0 && itemsSubtotal > order.total_amount) {
+      const diff = itemsSubtotal - order.total_amount;
+      initDiscountPct = Math.round((diff / itemsSubtotal) * 100);
+    }
+
+    setEditedDiscountPercent(initDiscountPct);
+    setEditedExtraDiscount(initExtraDisc.toString());
+    setCatalogSearch('');
+    setShowCatalogPicker(false);
+    setShowCustomItemForm(false);
   };
 
   const closeOrderItems = () => {
     setSelectedOrderForModal(null);
     setEditingProducts(false);
     setEditedItems([]);
+    setShowCatalogPicker(false);
+    setShowCustomItemForm(false);
   };
 
-  const removeEditedItem = (itemId?: string) => {
-    setEditedItems((items) => items.filter((item) => item.id !== itemId));
+  const removeEditedItem = (index: number) => {
+    setEditedItems((items) => items.filter((_, idx) => idx !== index));
   };
 
-  const updateEditedQuantity = (itemId: string | undefined, quantity: number) => {
-    setEditedItems((items) => items.map((item) => (
-      item.id === itemId ? { ...item, quantity: Math.max(1, quantity) } : item
+  const updateEditedQuantity = (index: number, quantity: number) => {
+    setEditedItems((items) => items.map((item, idx) => (
+      idx === index ? { ...item, quantity: Math.max(1, quantity) } : item
     )));
+  };
+
+  const updateEditedPrice = (index: number, price: number) => {
+    setEditedItems((items) => items.map((item, idx) => (
+      idx === index ? { ...item, price: Math.max(0, price) } : item
+    )));
+  };
+
+  const updateEditedName = (index: number, name: string) => {
+    setEditedItems((items) => items.map((item, idx) => (
+      idx === index ? { ...item, product_name: name } : item
+    )));
+  };
+
+  const addCatalogProductToOrder = (item: Product | GiftBox, isCombo = false) => {
+    const finalPrice = isCombo
+      ? (item as GiftBox).price
+      : calculateFinalPrice((item as Product).price, (item as Product).discount || 0);
+    const existingIndex = editedItems.findIndex((i) => i.product_id === item.id || i.product_name === item.name);
+    if (existingIndex >= 0) {
+      setEditedItems((items) => items.map((i, idx) => (
+        idx === existingIndex ? { ...i, quantity: i.quantity + 1 } : i
+      )));
+    } else {
+      const newItem: OrderItem = {
+        id: `item_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        order_id: selectedOrderForModal?.id || '',
+        product_id: item.id,
+        product_name: isCombo ? `${item.name} Combo` : item.name,
+        quantity: 1,
+        price: finalPrice,
+        created_at: new Date().toISOString(),
+      };
+      setEditedItems((items) => [...items, newItem]);
+    }
+  };
+
+  const addCustomItemToOrder = () => {
+    const name = customItemName.trim();
+    const price = parseFloat(customItemPrice);
+    const qty = parseInt(customItemQty, 10);
+    if (!name) {
+      alert('Please enter a product name');
+      return;
+    }
+    if (isNaN(price) || price < 0) {
+      alert('Please enter a valid unit price');
+      return;
+    }
+    const safeQty = isNaN(qty) || qty < 1 ? 1 : qty;
+    const newItem: OrderItem = {
+      id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      order_id: selectedOrderForModal?.id || '',
+      product_id: null,
+      product_name: name,
+      quantity: safeQty,
+      price: price,
+      created_at: new Date().toISOString(),
+    };
+    setEditedItems((items) => [...items, newItem]);
+    setCustomItemName('');
+    setCustomItemPrice('');
+    setCustomItemQty('1');
+    setShowCustomItemForm(false);
   };
 
   const handleSaveOrderEdits = async () => {
@@ -164,7 +306,6 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
 
     const invoiceNumber = editedInvoiceNumber.trim();
     const paidAmount = Number(editedPaidAmount);
-    const hasItems = Boolean(selectedOrderForModal.order_items?.length);
 
     if (!invoiceNumber) {
       alert('Invoice number cannot be empty.');
@@ -174,29 +315,43 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
       alert('Please enter a valid paid amount.');
       return;
     }
-    if (hasItems && editedItems.length === 0) {
+    if (editedItems.length === 0) {
       alert('At least one product must remain on the order.');
       return;
     }
 
     setSavingProducts(true);
+
+    const itemsSubtotal = editedItems.reduce((total, item) => total + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+    const percentDiscountAmt = Math.round(((itemsSubtotal * editedDiscountPercent) / 100) * 100) / 100;
+    const extraDiscountAmt = Math.max(0, parseFloat(editedExtraDiscount) || 0);
+    const totalDiscountAmt = percentDiscountAmt + extraDiscountAmt;
+    const finalTotalAmount = Math.max(0, Math.round((itemsSubtotal - totalDiscountAmt) * 100) / 100);
+
     const items: BillingOrderItem[] = editedItems.map((item) => ({
-      id: item.product_id || item.id || `order_item_${Date.now()}`,
+      id: item.product_id || item.id || `order_item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name: item.product_name,
-      price: item.price,
+      price: Number(item.price) || 0,
       discount: 0,
-      finalPrice: item.price,
-      quantity: item.quantity,
+      finalPrice: Number(item.price) || 0,
+      quantity: Number(item.quantity) || 1,
     }));
-    const totalAmount = hasItems
-      ? items.reduce((total, item) => total + item.finalPrice * item.quantity, 0)
-      : selectedOrderForModal.total_amount;
+
+    // Keep non-audit base notes and append clean audit note
+    const baseNotes = (selectedOrderForModal.notes || '')
+      .replace(/\[(?:POS BILLING|Order Edited|Edited)\].*$/i, '')
+      .trim();
+    const remainingAmount = Math.max(0, finalTotalAmount - paidAmount);
+    const auditNote = `[Order Edited] Discount: ${editedDiscountPercent}% | Extra Discount: ₹${extraDiscountAmt} | Paid: ₹${paidAmount} | Remaining: ₹${remainingAmount}`;
+    const newNotes = baseNotes ? `${baseNotes} | ${auditNote}` : auditNote;
+
     const result = await updateAdminBillingOrder({
       orderId: selectedOrderForModal.id,
-      totalAmount,
+      totalAmount: finalTotalAmount,
       paidAmount,
       invoiceNumber,
-      ...(hasItems ? { items } : {}),
+      items,
+      notes: newNotes,
     });
     setSavingProducts(false);
 
@@ -208,11 +363,16 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
     const updatedOrder: Order = {
       ...selectedOrderForModal,
       invoice_number: invoiceNumber,
-      total_amount: totalAmount,
+      total_amount: finalTotalAmount,
       paid_amount: paidAmount,
-      remaining_amount: Math.max(0, totalAmount - paidAmount),
-      order_items: hasItems ? editedItems : selectedOrderForModal.order_items,
+      remaining_amount: remainingAmount,
+      notes: newNotes,
+      order_items: editedItems.map((item) => ({
+        ...item,
+        order_id: selectedOrderForModal.id,
+      })),
     };
+
     setVisibleOrders((currentOrders) => currentOrders.map((order) => (
       order.id === updatedOrder.id ? updatedOrder : order
     )));
@@ -380,6 +540,59 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
     };
   };
 
+  const triggerOrderInvoicePDF = (order: Order) => {
+    const items = order.order_items || [];
+    const itemsSubtotal = items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+
+    let discountPercent = 0;
+    let extraDiscount = 0;
+
+    if (order.notes) {
+      const pctMatch = order.notes.match(/Discount[:\s]*([\d.]+)%/i)
+        || order.notes.match(/([\d.]+)%\s*Discount/i)
+        || order.notes.match(/Discount[:\s]*(\d+)(?!\d|\.)/i);
+      if (pctMatch && pctMatch[1]) discountPercent = parseFloat(pctMatch[1]) || 0;
+
+      const extraMatch = order.notes.match(/Extra\s*(?:Amount\s*)?Discount[:\s]*(?:Rs\.?|₹)?\s*([\d.]+)/i);
+      if (extraMatch && extraMatch[1]) extraDiscount = parseFloat(extraMatch[1]) || 0;
+    }
+
+    let discountAmount = 0;
+    if (discountPercent > 0) {
+      discountAmount = Math.round(((itemsSubtotal * discountPercent) / 100) * 100) / 100;
+    } else if (itemsSubtotal > (order.total_amount + extraDiscount)) {
+      discountAmount = Math.max(0, Math.round((itemsSubtotal - (order.total_amount + extraDiscount)) * 100) / 100);
+      if (itemsSubtotal > 0) {
+        discountPercent = Math.round((discountAmount / itemsSubtotal) * 100);
+      }
+    } else if (itemsSubtotal > order.total_amount) {
+      discountAmount = Math.max(0, Math.round((itemsSubtotal - order.total_amount) * 100) / 100);
+      if (itemsSubtotal > 0) {
+        discountPercent = Math.round((discountAmount / itemsSubtotal) * 100);
+      }
+    }
+
+    const breakdown = getOrderPaymentBreakdown(order);
+
+    const pdfOrderData = {
+      ...order,
+      subtotal: itemsSubtotal > 0 ? itemsSubtotal : order.total_amount,
+      discount_percent: discountPercent,
+      discount_amount: discountAmount,
+      extra_discount: extraDiscount,
+      total_amount: order.total_amount,
+      paid_amount: breakdown.paidAmount,
+      remaining_amount: breakdown.remainingAmount,
+      order_items: items.map((item) => ({
+        ...item,
+        original_price: item.price,
+        final_price: item.price,
+      })),
+    };
+
+    generateInvoicePDF(pdfOrderData as any, true);
+  };
+
   const handleSort = (col: string) => {
     if (sortColumn === col) {
       if (sortDirection === 'asc') {
@@ -528,7 +741,7 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
               <tr>
                 <th
                   onClick={() => handleSort('created_at')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[140px]"
+                  className="py-3 px-3.5 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[130px]"
                 >
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Order ID & Date</span>
@@ -537,18 +750,18 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 </th>
                 <th
                   onClick={() => handleSort('customer_name')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[180px]"
+                  className="py-3 px-3.5 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[170px]"
                 >
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Customer & Contact</span>
                     {renderSortIcon('customer_name')}
                   </div>
                 </th>
-                <th className="py-3.5 px-4 bg-slate-50 min-w-[190px] whitespace-nowrap">Delivery Address</th>
-                <th className="py-3.5 px-4 bg-slate-50 min-w-[130px] whitespace-nowrap">Items List</th>
+                <th className="py-3 px-3.5 bg-slate-50 min-w-[180px] whitespace-nowrap">Delivery Address</th>
+                <th className="py-3 px-3.5 bg-slate-50 min-w-[115px] whitespace-nowrap">Items List</th>
                 <th
                   onClick={() => handleSort('total_amount')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[170px]"
+                  className="py-3 px-3.5 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[130px]"
                 >
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Payment & Balance</span>
@@ -557,14 +770,14 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 </th>
                 <th
                   onClick={() => handleSort('status')}
-                  className="py-3.5 px-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[150px]"
+                  className="py-3.5 px-3.5 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors group select-none min-w-[135px]"
                 >
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span>Order Status</span>
                     {renderSortIcon('status')}
                   </div>
                 </th>
-                <th className="py-3.5 px-4 text-right bg-slate-50 min-w-[150px] whitespace-nowrap">Actions</th>
+                <th className="py-3 px-3.5 pr-6 text-right bg-slate-50 min-w-[155px] whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -575,8 +788,26 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                     ? order.order_items.reduce((sum, item) => sum + item.quantity, 0)
                     : 1;
 
-                  // Extract clean customer notes without raw POS metadata
-                  const displayNotes = order.notes && !order.notes.includes('[POS BILLING]') ? order.notes : '';
+                  // Extract clean customer notes without raw POS metadata, redundant Aadhar, or buyer type tags
+                  let cleanNotes = (order.notes || '')
+                    .replace(/\[(?:POS BILLING|Order Edited|Edited)\].*$/i, '')
+                    .replace(/Aadhar\/PAN:\s*[^\s|]+(?:\s*\|\s*)?/gi, '')
+                    .replace(/Paid:\s*₹?\s*[\d.]+(?:\s*\|\s*)?/gi, '')
+                    .replace(/Remaining:\s*₹?\s*[\d.]+(?:\s*\|\s*)?/gi, '')
+                    .replace(/Discount:\s*[\d.]+%(?:\s*\|\s*)?/gi, '')
+                    .replace(/Extra Discount:\s*₹?\s*[\d.]+(?:\s*\|\s*)?/gi, '')
+                    .replace(/\|\s*retail\b/gi, '')
+                    .replace(/\bretail\b/gi, '')
+                    .replace(/\|\s*wholesale\b/gi, '')
+                    .replace(/\bwholesale\b/gi, '')
+                    .replace(/\|\s*walk-?in\b/gi, '')
+                    .replace(/\bwalk-?in\b/gi, '')
+                    .replace(/^[|,\s"'-]+|[|,\s"'-]+$/g, '')
+                    .trim();
+
+                  if (cleanNotes.length < 3) cleanNotes = '';
+
+                  const aadharNum = order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1];
 
                   const formattedDate = new Date(order.created_at).toLocaleString('en-IN', {
                     day: '2-digit',
@@ -586,93 +817,111 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                     hour12: true,
                   });
 
+                  const breakdown = getOrderPaymentBreakdown(order);
+
                   return (
                     <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* ORDER ID & DATE */}
-                      <td className="py-3.5 px-4">
-                        <span className="font-mono font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 inline-block text-xs shadow-2xs">
-                          #{shortId}
-                        </span>
-                        <span className="text-[10px] font-medium text-slate-500 block mt-1 whitespace-nowrap">
-                          {formattedDate}
-                        </span>
+                      <td className="py-3 px-3.5 align-middle">
+                        <div className="space-y-0.5">
+                          <span className="font-mono font-black text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 inline-block text-xs shadow-2xs">
+                            #{shortId}
+                          </span>
+                          <span className="text-[11px] font-medium text-slate-500 block whitespace-nowrap">
+                            {formattedDate}
+                          </span>
+                        </div>
                       </td>
 
                       {/* CUSTOMER & CONTACT */}
-                      <td className="py-3.5 px-4">
-                        <span className="font-extrabold text-slate-900 text-xs block">{order.customer_name}</span>
-                        {(order.aadhar_pan || (order.notes && order.notes.includes('Aadhar'))) && (
-                          <span className="text-[9px] font-mono font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
-                            Aadhar/PAN: {order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1] || 'Attached'}
+                      <td className="py-3 px-3.5 align-middle">
+                        <div className="space-y-1">
+                          <span className="font-extrabold text-slate-900 text-xs block leading-tight">
+                            {order.customer_name}
                           </span>
-                        )}
-                        <div className="mt-1">
-                          <a
-                            href={`tel:+91${order.phone}`}
-                            className="inline-flex items-center gap-1 text-slate-700 font-bold hover:text-amber-600 text-[11px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-lg border border-slate-200 transition-colors"
-                          >
-                            <Phone className="w-3 h-3 text-slate-400" />
-                            <span>{order.phone}</span>
-                          </a>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <a
+                              href={`tel:+91${order.phone}`}
+                              className="inline-flex items-center gap-1 text-slate-700 hover:text-amber-700 font-bold text-[11px] bg-slate-100 hover:bg-amber-50 px-2 py-0.5 rounded-md border border-slate-200 hover:border-amber-200 transition-colors"
+                              title="Call customer"
+                            >
+                              <Phone className="w-3 h-3 text-slate-400" />
+                              <span>{order.phone}</span>
+                            </a>
+                            {aadharNum && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-slate-700 bg-slate-100 border border-slate-200/90 px-1.5 py-0.5 rounded-md"
+                                title="Customer Aadhar / PAN ID"
+                              >
+                                <CreditCard className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                <span>{aadharNum}</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
 
                       {/* DELIVERY ADDRESS */}
-                      <td className="py-3.5 px-4 max-w-xs">
-                        <p className="font-semibold text-slate-800 text-[11px] leading-snug line-clamp-1">{order.address}</p>
-                        <p className="text-slate-500 font-bold text-[10px] mt-0.5 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-amber-500 shrink-0" />
-                          <span>{order.city} - {order.pincode}</span>
-                        </p>
-                        {displayNotes && <p className="text-amber-600 italic text-[10px] mt-0.5">"{displayNotes}"</p>}
+                      <td className="py-3 px-3.5 align-middle max-w-[220px]">
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-slate-800 text-[11px] leading-snug line-clamp-2" title={order.address}>
+                            {order.address}
+                          </p>
+                          <p className="text-slate-500 font-medium text-[10px] flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-amber-500 shrink-0" />
+                            <span>{order.city} - {order.pincode}</span>
+                          </p>
+                          {cleanNotes && (
+                            <p className="text-amber-800 font-medium text-[10px] bg-amber-50 border border-amber-200/70 rounded px-1.5 py-0.5 inline-block leading-tight" title={cleanNotes}>
+                              Note: &ldquo;{cleanNotes}&rdquo;
+                            </p>
+                          )}
+                        </div>
                       </td>
 
                       {/* ITEMS LIST */}
-                      <td className="py-3.5 px-4">
-                        <button
-                          onClick={() => openOrderItems(order)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 font-extrabold text-[11px] transition-all cursor-pointer hover:scale-105 shadow-2xs active:scale-95 whitespace-nowrap"
-                          title="Click to open full order items popup"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-amber-600" />
-                          <span>View Items ({totalItemsCount})</span>
-                        </button>
-                        <button
-                          onClick={() => openOrderItems(order, true)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-extrabold text-[11px] transition-all cursor-pointer hover:scale-105 shadow-2xs"
-                          title="Edit products in this order"
-                        >
-                          <Edit2 className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Edit Order</span>
-                        </button>
+                      <td className="py-3 px-3.5 align-middle">
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => openOrderItems(order)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-extrabold text-[11px] transition-all cursor-pointer shadow-2xs hover:scale-102 active:scale-95"
+                            title="Click to view ordered products"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-amber-600" />
+                            <span>{totalItemsCount} {totalItemsCount === 1 ? 'Item' : 'Items'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openOrderItems(order, true)}
+                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-800 border border-slate-200 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                            title="Edit order products & price"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-amber-600" />
+                          </button>
+                        </div>
                       </td>
 
                       {/* PAYMENT & BALANCE */}
-                      <td className="py-3.5 px-4">
-                        <span className="font-black text-slate-900 text-xs block">
-                          {formatCurrency(order.total_amount)}
-                        </span>
-                        {(() => {
-                          const breakdown = getOrderPaymentBreakdown(order);
-
-                          return (
-                            <div className="mt-1 flex items-center gap-1 flex-wrap">
-                              {breakdown.isPending ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 shadow-2xs whitespace-nowrap">
-                                  Pending: {formatCurrency(breakdown.remainingAmount)}
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80 shadow-2xs whitespace-nowrap">
-                                  Fully Paid
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
+                      <td className="py-3 px-3.5 align-middle">
+                        <div className="space-y-0.5">
+                          <span className="font-black text-slate-900 text-xs block">
+                            {formatCurrency(order.total_amount)}
+                          </span>
+                          {breakdown.isPending ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 shadow-2xs whitespace-nowrap">
+                              Pending: {formatCurrency(breakdown.remainingAmount)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80 shadow-2xs whitespace-nowrap">
+                              Fully Paid
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* ORDER STATUS */}
-                      <td className="py-3.5 px-4">
+                      <td className="py-3 px-3.5 align-middle">
                         <CustomStatusDropdown
                           orderId={order.id}
                           currentStatus={order.status}
@@ -682,27 +931,30 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                       </td>
 
                       {/* DOWNLOAD BILL PDFs (Standard & GST Audit Bill) */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      <td className="py-3 px-3.5 pr-6 align-middle text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => generateInvoicePDF({ ...order, order_items: order.order_items || [] }, true)}
-                            className="p-2 rounded-xl bg-slate-100 hover:bg-amber-500 text-slate-700 hover:text-white border border-slate-200 transition-all cursor-pointer hover:scale-105 active:scale-95 inline-flex items-center justify-center shrink-0"
+                            type="button"
+                            onClick={() => triggerOrderInvoicePDF(order)}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-amber-500 text-slate-700 hover:text-white border border-slate-200 transition-all cursor-pointer hover:scale-105 active:scale-95 inline-flex items-center justify-center shrink-0 shadow-2xs"
                             title="Download Standard Customer PDF Receipt"
                           >
                             <Download className="w-3.5 h-3.5" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => openGstModal(order)}
                             className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-extrabold text-[10px] uppercase tracking-wider shadow-2xs transition-all cursor-pointer hover:scale-105 active:scale-95 inline-flex items-center gap-1 shrink-0"
-                            title="Generate Formal 18% GST Tax Invoice (Custom Amount & Audit Filing)"
+                            title="Generate Formal 18% GST Tax Invoice"
                           >
                             <FileText className="w-3.5 h-3.5 text-white" />
                             <span>GST Bill</span>
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleDeleteOrder(order)}
                             disabled={deletingOrderId === order.id}
-                            className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center shrink-0"
+                            className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center shrink-0 shadow-2xs"
                             title="Delete order"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -725,24 +977,34 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
 
       {/* Separate Order Items Popup Modal Table */}
       {selectedOrderForModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden space-y-5">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+          <div className={`bg-white border border-slate-200 rounded-3xl w-full ${editingProducts ? 'max-w-5xl lg:max-w-6xl' : 'max-w-3xl'} shadow-2xl flex flex-col max-h-[94vh] overflow-hidden`}>
             
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+            {/* Modal Header (Fixed at top) */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 shrink-0 bg-white z-10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs shrink-0">
                   <Package className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-black text-lg text-slate-900">
                       Order #{selectedOrderForModal.invoice_number || selectedOrderForModal.id.split('-')[0].toUpperCase()}
                     </h3>
-                    {editingProducts && (
-                      <span className="text-[10px] uppercase tracking-wider font-black text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
-                        Editing Order
+                    {editingProducts ? (
+                      <span className="text-[10px] uppercase tracking-wider font-black text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-lg flex items-center gap-1 shadow-2xs">
+                        <Edit2 className="w-3 h-3 text-amber-700" />
+                        <span>Full Edit Mode</span>
                       </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingProducts(true)}
+                        className="text-[11px] font-extrabold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2.5 py-0.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                      >
+                        <Edit2 className="w-3 h-3 text-amber-600" />
+                        <span>Edit Order</span>
+                      </button>
                     )}
                     <span className="text-xs text-slate-400 font-mono">
                       ({new Date(selectedOrderForModal.created_at).toLocaleString('en-IN')})
@@ -754,168 +1016,466 @@ export default function OrderManager({ orders }: { orders: Order[] }) {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={closeOrderItems}
                 className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close Window"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {editingProducts && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 shrink-0">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">Invoice Number</label>
-                  <input
-                    type="text"
-                    maxLength={50}
-                    value={editedInvoiceNumber}
-                    onChange={(event) => setEditedInvoiceNumber(event.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono font-bold text-slate-900 focus:outline-none focus:border-amber-500"
-                  />
+            {/* Scrollable Content Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+              {editingProducts && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50/40 p-3.5 rounded-2xl border border-amber-200/60">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">Invoice Number</label>
+                    <input
+                      type="text"
+                      maxLength={50}
+                      value={editedInvoiceNumber}
+                      onChange={(event) => setEditedInvoiceNumber(event.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono font-bold text-slate-900 focus:outline-none focus:border-amber-500 shadow-2xs"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-black uppercase text-slate-600">Paid Amount (₹)</label>
+                      <button
+                        type="button"
+                        onClick={() => setEditedPaidAmount(editedTotalAmount.toString())}
+                        className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline cursor-pointer"
+                      >
+                        Paid Full (₹{editedTotalAmount})
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editedPaidAmount}
+                      onChange={(event) => setEditedPaidAmount(event.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono font-bold text-slate-900 focus:outline-none focus:border-amber-500 shadow-2xs"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">Paid Amount (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editedPaidAmount}
-                    onChange={(event) => setEditedPaidAmount(event.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono font-bold text-slate-900 focus:outline-none focus:border-amber-500"
-                  />
+              )}
+
+              {/* Customer Details Summary Banner */}
+              <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/80 text-xs text-slate-700 space-y-1">
+                <p className="flex items-center gap-2">
+                  <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span className="font-bold text-slate-900">Delivery Address:</span>
+                  <span className="text-slate-600">{selectedOrderForModal.address}, {selectedOrderForModal.city} - {selectedOrderForModal.pincode}</span>
+                </p>
+                {selectedOrderForModal.notes && (
+                  <p className="text-amber-700 italic pl-5">Note: "{selectedOrderForModal.notes}"</p>
+                )}
+              </div>
+
+              {/* Add Products to Order Toolbar in Edit Mode */}
+              {editingProducts && (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
+                      <Plus className="w-4 h-4 text-amber-600" /> Add Products to Order
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCatalogPicker(!showCatalogPicker);
+                          setShowCustomItemForm(false);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          showCatalogPicker ? 'bg-amber-600 text-white shadow-xs' : 'bg-white text-slate-700 border border-slate-200 hover:border-amber-400'
+                        }`}
+                      >
+                        <Search className="w-3.5 h-3.5" />
+                        <span>From Catalog</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCustomItemForm(!showCustomItemForm);
+                          setShowCatalogPicker(false);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          showCustomItemForm ? 'bg-amber-600 text-white shadow-xs' : 'bg-white text-slate-700 border border-slate-200 hover:border-amber-400'
+                        }`}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Custom Item</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Catalog Search & Dropdown Picker */}
+                  {showCatalogPicker && (
+                    <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                      <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search crackers, sparklers, gift boxes by name..."
+                          value={catalogSearch}
+                          onChange={(e) => setCatalogSearch(e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-amber-500 shadow-2xs"
+                          autoFocus
+                        />
+                      </div>
+                      {catalogSearch.trim() && (
+                        <div className="max-h-48 overflow-y-auto bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 shadow-lg">
+                          {filteredCatalogItems.length > 0 ? (
+                            filteredCatalogItems.map((item: any) => {
+                              const price = item.isCombo ? item.price : calculateFinalPrice(item);
+                              return (
+                                <div key={`${item.id}-${item.isCombo}`} className="flex items-center justify-between p-2.5 hover:bg-amber-50/50 transition-colors">
+                                  <div>
+                                    <p className="font-bold text-xs text-slate-900">{item.name}</p>
+                                    <p className="text-[10px] text-slate-500">
+                                      {item.isCombo ? 'Combo Box' : item.category_name || 'Crackers'} • Price: <strong className="text-amber-700">{formatCurrency(price)}</strong>
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => addCatalogProductToOrder(item, item.isCombo)}
+                                    className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold cursor-pointer transition-transform active:scale-95 flex items-center gap-1"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" /> Add
+                                  </button>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="p-3 text-center text-xs text-slate-400">No matching catalog items found</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Custom Item Form */}
+                  {showCustomItemForm && (
+                    <div className="pt-2 border-t border-slate-200/80 grid grid-cols-1 sm:grid-cols-4 gap-2">
+                      <div className="sm:col-span-2">
+                        <input
+                          type="text"
+                          placeholder="Custom Product Name"
+                          value={customItemName}
+                          onChange={(e) => setCustomItemName(e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="Unit Price (₹)"
+                          value={customItemPrice}
+                          onChange={(e) => setCustomItemPrice(e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Qty"
+                          value={customItemQty}
+                          onChange={(e) => setCustomItemQty(e.target.value)}
+                          className="w-16 bg-white border border-slate-300 rounded-xl px-2 py-1.5 text-xs text-center text-slate-900 font-bold focus:outline-none focus:border-amber-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={addCustomItemToOrder}
+                          className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-1.5 text-xs font-extrabold cursor-pointer whitespace-nowrap"
+                        >
+                          Add Item
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Order Items Table Card */}
+              <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white">
+                <div className="bg-slate-100/90 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-amber-600" />
+                    Order Products ({editedItems.length} {editedItems.length === 1 ? 'item' : 'items'})
+                  </span>
+                  <span className="text-xs font-bold text-slate-500">
+                    Subtotal: <strong className="text-slate-900 font-mono">{formatCurrency(editingProducts ? editedSubtotal : selectedOrderForModal.total_amount)}</strong>
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-slate-600 font-black uppercase tracking-wider border-b border-slate-200 text-[11px]">
+                      <tr>
+                        <th className="py-2.5 px-3 w-10 text-center">#</th>
+                        <th className="py-2.5 px-3 min-w-[180px]">Item Name</th>
+                        <th className="py-2.5 px-3 text-center min-w-[120px]">Unit Price</th>
+                        <th className="py-2.5 px-3 text-center min-w-[140px]">Quantity</th>
+                        <th className="py-2.5 px-3 text-right min-w-[110px]">Subtotal</th>
+                        {editingProducts && <th className="py-2.5 px-3 text-center min-w-[110px]">Action</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {editedItems && editedItems.length > 0 ? (
+                        editedItems.map((item, index) => (
+                          <tr key={item.id || `${item.product_name}-${index}`} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-2.5 px-3 text-center font-bold text-slate-400">
+                              {index + 1}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-900">
+                              {editingProducts ? (
+                                <input
+                                  type="text"
+                                  value={item.product_name}
+                                  onChange={(e) => updateEditedName(index, e.target.value)}
+                                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900 focus:border-amber-500 focus:outline-none bg-slate-50/50 focus:bg-white transition-colors"
+                                />
+                              ) : (
+                                item.product_name
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-center text-slate-600 font-medium">
+                              {editingProducts ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <span className="text-[11px] font-bold text-slate-400">₹</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={item.price}
+                                    onChange={(e) => updateEditedPrice(index, Number(e.target.value))}
+                                    className="w-24 border border-slate-200 rounded-lg px-2 py-1 text-center text-xs font-bold text-slate-900 focus:border-amber-500 focus:outline-none bg-slate-50/50 focus:bg-white"
+                                  />
+                                </div>
+                              ) : (
+                                formatCurrency(item.price)
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-extrabold text-amber-700">
+                              {editingProducts ? (
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateEditedQuantity(index, item.quantity - 1)}
+                                    className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold cursor-pointer transition-colors"
+                                    title="Decrease quantity"
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={item.quantity}
+                                    onChange={(event) => updateEditedQuantity(index, Number(event.target.value))}
+                                    className="w-14 border border-slate-200 rounded-lg px-1.5 py-1 text-center text-slate-900 font-bold text-xs bg-slate-50/50 focus:bg-white focus:border-amber-500 focus:outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateEditedQuantity(index, item.quantity + 1)}
+                                    className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold cursor-pointer transition-colors"
+                                    title="Increase quantity"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="font-bold">× {item.quantity}</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-black text-slate-900 whitespace-nowrap">
+                              {formatCurrency(item.price * item.quantity)}
+                            </td>
+                            {editingProducts && (
+                              <td className="py-2.5 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeEditedItem(index)}
+                                  className="px-2.5 py-1 rounded-lg text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 transition-all shadow-2xs"
+                                  title="Remove item from order"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Remove</span>
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={editingProducts ? 6 : 5} className="py-8 text-center text-slate-400">
+                            <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                            <p className="font-medium text-xs">No items in this order.</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Use "From Catalog" or "Custom Item" above to add products.</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            )}
 
-            {/* Customer Details Summary Banner */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 text-xs text-slate-700 space-y-1.5 shrink-0">
-              <p className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span className="font-bold text-slate-900">Delivery Address:</span>
-                <span className="text-slate-600">{selectedOrderForModal.address}, {selectedOrderForModal.city} - {selectedOrderForModal.pincode}</span>
-              </p>
-              {selectedOrderForModal.notes && (
-                <p className="text-amber-700 italic pl-5">Note: "{selectedOrderForModal.notes}"</p>
+              {/* Live Financial & Discount Breakdown in Edit Mode */}
+              {editingProducts && (
+                <div className="bg-amber-50/50 border border-amber-200/80 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>Items Subtotal:</span>
+                    <span className="font-mono text-slate-900 text-sm">{formatCurrency(editedSubtotal)}</span>
+                  </div>
+
+                  {/* Percentage Discount */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-700 flex items-center gap-1">
+                        <Percent className="w-3.5 h-3.5 text-amber-600" /> Percentage Discount:
+                      </span>
+                      <span className="font-mono text-emerald-700 font-bold">
+                        {editedDiscountPercent > 0 ? `- ${formatCurrency(editedDiscountAmount)} (${editedDiscountPercent}%)` : '₹0.00'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[0, 10, 15, 20, 25, 30, 40, 50].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => setEditedDiscountPercent(pct)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            editedDiscountPercent === pct
+                              ? 'bg-amber-600 text-white shadow-xs'
+                              : 'bg-white border border-slate-200 text-slate-700 hover:border-amber-400'
+                          }`}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-0.5">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={editedDiscountPercent}
+                          onChange={(e) => setEditedDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                          className="w-10 text-xs font-bold text-slate-900 text-center focus:outline-none"
+                        />
+                        <span className="text-xs text-slate-400 font-bold">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Extra Flat Discount */}
+                  <div className="flex items-center justify-between gap-4 pt-2 border-t border-amber-200/60">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block">
+                        Extra Flat Rupee Discount (₹):
+                      </label>
+                      <span className="text-[10px] text-slate-500">Negotiated / special counter discount</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1 shadow-2xs">
+                        <span className="text-xs font-bold text-slate-500">₹</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={editedExtraDiscount}
+                          onChange={(e) => setEditedExtraDiscount(e.target.value)}
+                          placeholder="0"
+                          className="w-24 text-xs font-mono font-bold text-slate-900 focus:outline-none"
+                        />
+                      </div>
+                      {editedExtraDiscountAmount > 0 && (
+                        <span className="text-xs font-mono font-bold text-emerald-700">
+                          - {formatCurrency(editedExtraDiscountAmount)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Financial Totals Row */}
+                  <div className="pt-2 border-t border-amber-200 grid grid-cols-2 sm:grid-cols-3 gap-2 text-center">
+                    <div className="bg-white rounded-xl p-2 border border-slate-200">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Net Order Total</span>
+                      <span className="text-sm font-black text-slate-900">{formatCurrency(editedTotalAmount)}</span>
+                    </div>
+                    <div className="bg-white rounded-xl p-2 border border-slate-200">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Paid Amount</span>
+                      <span className="text-sm font-black text-emerald-600">{formatCurrency(parseFloat(editedPaidAmount) || 0)}</span>
+                    </div>
+                    <div className="bg-white rounded-xl p-2 border border-slate-200 col-span-2 sm:col-span-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Balance Due</span>
+                      <span className={`text-sm font-black ${Math.max(0, editedTotalAmount - (parseFloat(editedPaidAmount) || 0)) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        {formatCurrency(Math.max(0, editedTotalAmount - (parseFloat(editedPaidAmount) || 0)))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* Popup Table of Items */}
-            <div className="flex-1 min-h-0 border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs flex flex-col bg-white">
-              <div className="overflow-y-auto flex-1">
-                <table className="w-full text-left text-xs text-slate-700 relative">
-                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 font-extrabold uppercase tracking-wider border-b border-slate-200 shadow-2xs">
-                    <tr>
-                      <th className="py-3 px-4 bg-slate-50">Item Name</th>
-                      <th className="py-3 px-4 text-center bg-slate-50">Unit Price</th>
-                      <th className="py-3 px-4 text-center bg-slate-50">Quantity</th>
-                      <th className="py-3 px-4 text-right bg-slate-50">Subtotal</th>
-                      {editingProducts && <th className="py-3 px-4 text-right bg-slate-50">Remove</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {selectedOrderForModal.order_items && selectedOrderForModal.order_items.length > 0 ? (
-                      editedItems.map((item, index) => (
-                        <tr key={item.id || `${item.product_name}-${index}`} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-4 font-bold text-slate-900">
-                            {item.product_name}
-                          </td>
-                          <td className="py-3 px-4 text-center text-slate-600 font-medium">
-                            {formatCurrency(item.price)}
-                          </td>
-                          <td className="py-3 px-4 text-center font-extrabold text-amber-700">
-                            {editingProducts ? (
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(event) => updateEditedQuantity(item.id, Number(event.target.value))}
-                                className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-center text-slate-900 font-bold"
-                              />
-                            ) : (
-                              <>×{item.quantity}</>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-right font-black text-slate-900">
-                            {formatCurrency(item.price * item.quantity)}
-                          </td>
-                          {editingProducts && (
-                            <td className="py-3 px-4 text-right">
-                              <button
-                                onClick={() => removeEditedItem(item.id)}
-                                disabled={editedItems.length === 1}
-                                className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
-                                title="Remove product"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      ))
-                    ) : (
-                      <tr className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-4 font-bold text-slate-900">
-                          Combo Box Pack / Order Package
-                        </td>
-                        <td className="py-3 px-4 text-center text-slate-600 font-medium">
-                          {formatCurrency(selectedOrderForModal.total_amount)}
-                        </td>
-                        <td className="py-3 px-4 text-center font-extrabold text-amber-700">
-                          ×1
-                        </td>
-                        <td className="py-3 px-4 text-right font-black text-slate-900">
-                          {formatCurrency(selectedOrderForModal.total_amount)}
-                        </td>
-                        {editingProducts && <td />}
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Modal Footer with WhatsApp Share Action */}
-            <div className="flex items-center justify-between border-t border-slate-100 pt-4 shrink-0 gap-3">
+            {/* Modal Footer with Actions (Fixed at bottom, never cut off!) */}
+            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4 shrink-0 gap-3 z-10">
               <div>
-                <span className="text-xs text-slate-400 uppercase font-extrabold tracking-wider block">Total Amount</span>
-                <span className="text-2xl font-black text-emerald-600">
-                  {formatCurrency(selectedOrderForModal.total_amount)}
+                <span className="text-[11px] text-slate-500 uppercase font-black tracking-wider block">Total Amount</span>
+                <span className="text-xl sm:text-2xl font-black text-emerald-600">
+                  {formatCurrency(editingProducts ? editedTotalAmount : selectedOrderForModal.total_amount)}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                {!editingProducts && <a
-                  href={getWhatsAppThankYouLink(selectedOrderForModal)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all shadow-md cursor-pointer hover:scale-105 flex items-center gap-2"
-                >
-                  <WhatsAppIcon className="w-4 h-4 text-white cursor-pointer" />
-                  <span>Send Thank You on WhatsApp</span>
-                </a>}
+              <div className="flex items-center gap-2.5 flex-wrap justify-end">
+                {!editingProducts && (
+                  <a
+                    href={getWhatsAppThankYouLink(selectedOrderForModal)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3.5 py-2.5 rounded-xl text-xs transition-all shadow-sm cursor-pointer hover:scale-102 flex items-center gap-1.5"
+                  >
+                    <WhatsAppIcon className="w-4 h-4 text-white" />
+                    <span className="hidden sm:inline">WhatsApp</span>
+                  </a>
+                )}
 
                 {!editingProducts && (
                   <button
-                    onClick={() => generateInvoicePDF({ ...selectedOrderForModal, order_items: selectedOrderForModal.order_items || [] }, true)}
-                    className="bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-800 border border-slate-200 font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all shadow-md cursor-pointer flex items-center gap-2"
+                    type="button"
+                    onClick={() => triggerOrderInvoicePDF(selectedOrderForModal)}
+                    className="bg-white hover:bg-amber-500 hover:text-white text-slate-800 border border-slate-200 font-extrabold px-3.5 py-2.5 rounded-xl text-xs transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
                   >
-                    <Receipt className="w-4 h-4" /> Receipt PDF
+                    <Receipt className="w-4 h-4" />
+                    <span>Receipt PDF</span>
                   </button>
                 )}
 
                 <button
+                  type="button"
                   onClick={editingProducts ? () => setEditingProducts(false) : closeOrderItems}
-                  className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer hover:scale-105"
+                  className="bg-slate-800 hover:bg-slate-900 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer hover:scale-102"
                 >
                   {editingProducts ? 'Cancel Edit' : 'Close Window'}
                 </button>
+
                 {editingProducts && (
                   <button
+                    type="button"
                     onClick={handleSaveOrderEdits}
-                    disabled={savingProducts}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer disabled:opacity-50"
+                    disabled={savingProducts || editedItems.length === 0}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer disabled:opacity-50 hover:scale-102 flex items-center gap-1.5"
                   >
-                    {savingProducts ? 'Saving...' : 'Save Order'}
+                    {savingProducts ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <span>Save Order Changes</span>
+                    )}
                   </button>
                 )}
               </div>

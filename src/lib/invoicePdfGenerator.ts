@@ -20,6 +20,10 @@ export interface PDFOrderDetails {
   paid_amount?: number | null;
   remaining_amount?: number | null;
   notes?: string | null;
+  subtotal?: number | null;
+  discount_amount?: number | null;
+  discount_percent?: number | null;
+  extra_discount?: number | null;
   total_amount: number;
   status?: string;
   created_at: string;
@@ -183,15 +187,15 @@ export async function generateInvoicePDF(order: PDFOrderDetails, triggerDownload
     `upi://pay?pa=krishnanhk55@okaxis&pn=Sri%20Arumugam%20Pyro%20Park&am=${order.total_amount}&cu=INR`
   );
 
-  // Watermark across center
+  // Soft Watermark across center
   doc.saveGraphicsState();
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(38);
-  doc.setTextColor(245, 230, 215);
-  doc.text('Sri Arumuga Pyro Park', 38, 175, { angle: 30 });
+  doc.setFontSize(36);
+  doc.setTextColor(245, 240, 235);
+  doc.text('Sri Arumugam Pyro Park', 32, 170, { angle: 30 });
   doc.restoreGraphicsState();
 
-  // Top Header: Logo on Left, INVOICE on Right
+  // ── 1. TOP HEADER: Logo on Left, INVOICE on Right ──
   if (logoImg) {
     doc.addImage(logoImg, 'PNG', 14, 12, 46, 15);
   } else {
@@ -202,68 +206,94 @@ export async function generateInvoicePDF(order: PDFOrderDetails, triggerDownload
   }
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
+  doc.setFontSize(22);
   doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
   doc.text('INVOICE', 196, 22, { align: 'right' });
 
-  // Address & Order Details 3-Column Block
-  const addressY = 36;
+  // Sleek separator line under header
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.5);
+  doc.line(14, 30, 196, 30);
+
+  // ── 2. ADDRESS & ORDER INFO 3-COLUMN CARD ──
+  const addressY = 34;
+  const cardHeight = 36;
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, addressY, 182, cardHeight, 2, 2, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(14, addressY, 182, cardHeight, 2, 2, 'S');
 
   // Column 1: From Address
+  const col1X = 18;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(0, 0, 0);
-  doc.text('From Address:', 14, addressY);
+  doc.setFontSize(7.5);
+  doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+  doc.text('FROM:', col1X, addressY + 6);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text(SHOP_INFO.name, 14, addressY + 6);
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(SHOP_INFO.name, col1X, addressY + 11);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(40, 40, 40);
-  doc.text(SHOP_INFO.addressLine1, 14, addressY + 11);
-  doc.text(SHOP_INFO.addressLine2, 14, addressY + 16);
-  doc.text(SHOP_INFO.addressLine3, 14, addressY + 21);
-  doc.text(SHOP_INFO.country, 14, addressY + 26);
-  doc.text(`Phone: ${SHOP_INFO.phone}`, 14, addressY + 31);
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(SHOP_INFO.addressLine1, col1X, addressY + 15.5);
+  doc.text(`${SHOP_INFO.addressLine2}, ${SHOP_INFO.addressLine3}`, col1X, addressY + 19.5);
+  doc.text(`${SHOP_INFO.country} - Phone: ${SHOP_INFO.phone}`, col1X, addressY + 23.5);
+
+  // Vertical Divider 1
+  doc.setDrawColor(226, 232, 240);
+  doc.line(76, addressY + 4, 76, addressY + cardHeight - 4);
 
   // Column 2: Billing Address
   const col2X = 80;
+  const aadharVal = order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1];
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(0, 0, 0);
-  doc.text('Billing Address:', col2X, addressY);
+  doc.setFontSize(7.5);
+  doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+  doc.text('BILLED TO:', col2X, addressY + 6);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text(order.customer_name || 'Walk-in Counter Buyer', col2X, addressY + 6);
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(order.customer_name || 'Walk-in Counter Buyer', col2X, addressY + 11);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(40, 40, 40);
-  const custAddrLines = doc.splitTextToSize(order.address || 'In-Store Counter', 55);
-  doc.text(custAddrLines, col2X, addressY + 11);
-  const nextY = addressY + 11 + custAddrLines.length * 4.5;
-  doc.text(order.city || 'Sivakasi', col2X, nextY);
-  doc.text(`Tamil Nadu-${order.pincode || '626123'}`, col2X, nextY + 4.5);
-  doc.text(`Phone: ${order.phone || 'N/A'}`, col2X, nextY + 9);
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  const custAddrLines = doc.splitTextToSize(order.address || 'In-Store Counter', 56);
+  doc.text(custAddrLines[0] || 'In-Store Counter', col2X, addressY + 15.5);
+  doc.text(`${order.city || 'Sivakasi'} - ${order.pincode || '626123'}`, col2X, addressY + 19.5);
+  const contactStr = `Phone: ${order.phone || 'N/A'}${aadharVal ? ` | Aadhar: ${aadharVal}` : ''}`;
+  doc.text(doc.splitTextToSize(contactStr, 56)[0], col2X, addressY + 23.5);
 
-  const aadharVal = order.aadhar_pan || order.notes?.match(/Aadhar\/PAN:\s*([^\s|]+)/)?.[1];
-  if (aadharVal) {
-    doc.text(`Aadhar No:${aadharVal}`, col2X, nextY + 13.5);
-  }
+  // Vertical Divider 2
+  doc.setDrawColor(226, 232, 240);
+  doc.line(138, addressY + 4, 138, addressY + cardHeight - 4);
 
   // Column 3: Order Details
-  const col3X = 145;
+  const col3X = 142;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(0, 0, 0);
-  doc.text(`Order ID : #${orderId}`, col3X, addressY);
-  doc.text(`Order Date : ${formattedDate},`, col3X, addressY + 5);
-  doc.text(`${formattedTime}`, col3X, addressY + 9.5);
+  doc.setFontSize(7.5);
+  doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+  doc.text('ORDER DETAILS:', col3X, addressY + 6);
 
-  // Table of Items
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Order ID: #${orderId}`, col3X, addressY + 11);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Date: ${formattedDate}`, col3X, addressY + 15.5);
+  doc.text(`Time: ${formattedTime}`, col3X, addressY + 19.5);
+  const payMode = order.notes?.match(/Payment:\s*([^\s|]+)/i)?.[1] || 'CASH / UPI';
+  doc.text(`Mode: ${payMode}`, col3X, addressY + 23.5);
+
+  // ── 3. PRODUCT ITEMS TABLE ──
   const itemsList = order.order_items && order.order_items.length > 0
     ? order.order_items
     : [
@@ -289,42 +319,44 @@ export async function generateInvoicePDF(order: PDFOrderDetails, triggerDownload
     ];
   });
 
-  const tableStartY = Math.max(addressY + 36, nextY + (aadharVal ? 18 : 14));
+  const tableStartY = addressY + cardHeight + 4; // 74mm
 
   autoTable(doc, {
     startY: tableStartY,
     head: tableHead,
     body: tableData,
-    theme: 'plain',
+    theme: 'grid',
     headStyles: {
-      textColor: [234, 88, 12],
+      fillColor: [234, 88, 12], // Brand Orange
+      textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 9,
+      fontSize: 8.5,
       halign: 'center',
-      cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
+      valign: 'middle',
+      cellPadding: { top: 3.5, bottom: 3.5, left: 2.5, right: 2.5 },
+      lineColor: [217, 119, 6],
+      lineWidth: 0.3,
+    },
+    alternateRowStyles: {
+      fillColor: [254, 252, 248], // Subtle warm tint
+    },
+    bodyStyles: {
+      fontSize: 8.5,
+      textColor: [15, 23, 42],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.25,
+      cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 },
+      valign: 'middle',
     },
     columnStyles: {
       0: { cellWidth: 14, halign: 'center' },
-      1: { cellWidth: 79, halign: 'left' },
-      2: { cellWidth: 22, halign: 'center' },
-      3: { cellWidth: 32, halign: 'right' },
-      4: { cellWidth: 35, halign: 'right' },
+      1: { cellWidth: 88, halign: 'left' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 28, halign: 'right' },
+      4: { cellWidth: 32, halign: 'right' },
     },
     tableWidth: 182,
-    margin: { left: 14, right: 16 },
-    styles: {
-      fontSize: 9,
-      textColor: [0, 0, 0],
-      cellPadding: 3,
-    },
-    didDrawCell: (data) => {
-      // Top line and bottom line for header row
-      if (data.row.index === -1) {
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.6);
-        doc.line(14, data.cell.y + data.cell.height, 196, data.cell.y + data.cell.height);
-      }
-    },
+    margin: { left: 14, right: 14 },
     didParseCell: (data) => {
       if (data.section === 'head') {
         if (data.column.index === 1) data.cell.styles.halign = 'left';
@@ -335,62 +367,268 @@ export async function generateInvoicePDF(order: PDFOrderDetails, triggerDownload
 
   const tableFinalY = (doc as any).lastAutoTable.finalY + 4;
 
-  // Divider line after table body
-  doc.setDrawColor(220, 220, 220);
-  doc.setLineWidth(0.4);
-  doc.line(14, tableFinalY, 196, tableFinalY);
-
-  // Total Amount Row
-  const totalY = tableFinalY + 6;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.text('Total Amount', 145, totalY, { align: 'right' });
-  doc.text(`Rs. ${order.total_amount.toFixed(2)}`, 196, totalY, { align: 'right' });
-
-  // Additional Details & QR & Terms (Bottom Left)
-  let bottomY = totalY + 12;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.text('Additional Details', 14, bottomY);
-  doc.setLineWidth(0.3);
-  doc.line(14, bottomY + 1, 45, bottomY + 1);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(order.notes || 'Safty and Happy Diwali', 14, bottomY + 6);
-
-  // UPI QR Code
-  const qrY = bottomY + 10;
-  if (qrDataUrl) {
-    doc.addImage(qrDataUrl, 'PNG', 14, qrY, 24, 24);
+  let summaryPageY = tableFinalY;
+  if (tableFinalY > 210) {
+    doc.addPage();
+    summaryPageY = 20;
   }
 
-  // Terms and Conditions
-  const termsY = qrY + 28;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.text('Terms and Conditions', 14, termsY);
-  doc.line(14, termsY + 1, 52, termsY + 1);
+  // ── 4. FINANCIAL BREAKDOWN & TOTALS (ALWAYS INCLUDED IN EVERY INVOICE) ──
+  const itemsSubtotal = order.subtotal !== undefined && order.subtotal !== null && Number(order.subtotal) > 0
+    ? Number(order.subtotal)
+    : itemsList.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
 
+  // Parse notes if discount or extra discount might be recorded there
+  let extractedExtraDiscount = 0;
+  let extractedDiscountPercent = 0;
+  if (order.notes) {
+    const extraMatch = order.notes.match(/Extra\s*(?:Amount\s*)?Discount[:\s]*(?:Rs\.?|₹)?\s*([\d.]+)/i);
+    if (extraMatch && extraMatch[1]) extractedExtraDiscount = parseFloat(extraMatch[1]) || 0;
+
+    const pctMatch = order.notes.match(/Discount[:\s]*([\d.]+)%/i)
+      || order.notes.match(/([\d.]+)%\s*Discount/i)
+      || order.notes.match(/Discount[:\s]*(\d+)(?!\d|\.)/i);
+    if (pctMatch && pctMatch[1]) extractedDiscountPercent = parseFloat(pctMatch[1]) || 0;
+  }
+
+  const discountPercent = order.discount_percent !== undefined && order.discount_percent !== null
+    ? Number(order.discount_percent)
+    : extractedDiscountPercent;
+
+  const extraDiscount = order.extra_discount !== undefined && order.extra_discount !== null
+    ? Number(order.extra_discount)
+    : extractedExtraDiscount;
+
+  let discountAmount = 0;
+  if (order.discount_amount !== undefined && order.discount_amount !== null && Number(order.discount_amount) > 0) {
+    discountAmount = Number(order.discount_amount);
+  } else if (discountPercent > 0) {
+    discountAmount = Math.round(((itemsSubtotal * discountPercent) / 100) * 100) / 100;
+  } else if (itemsSubtotal > (order.total_amount + extraDiscount)) {
+    discountAmount = Math.max(0, Math.round((itemsSubtotal - (order.total_amount + extraDiscount)) * 100) / 100);
+  } else if (itemsSubtotal > order.total_amount) {
+    discountAmount = Math.max(0, Math.round((itemsSubtotal - order.total_amount) * 100) / 100);
+  }
+
+  let displayDiscountPercent = discountPercent;
+  if (displayDiscountPercent === 0 && discountAmount > 0 && itemsSubtotal > 0) {
+    displayDiscountPercent = Math.round((discountAmount / itemsSubtotal) * 100);
+  }
+
+  const paidVal = order.paid_amount !== undefined && order.paid_amount !== null
+    ? Number(order.paid_amount)
+    : null;
+  const remVal = order.remaining_amount !== undefined && order.remaining_amount !== null
+    ? Number(order.remaining_amount)
+    : (paidVal !== null ? Math.max(0, order.total_amount - paidVal) : null);
+
+  // Dynamic Rows Count: Subtotal + Discount + (Extra Discount?) + Net Total + Paid + Status
+  const hasExtraDiscount = extraDiscount > 0;
+  const numRows = hasExtraDiscount ? 6 : 5;
+  const totalsBoxHeight = (numRows * 5.2) + 5;
+
+  // Render Right Box (Totals Summary Card)
+  const boxX = 118;
+  const boxW = 78;
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(boxX, summaryPageY, boxW, totalsBoxHeight, 2, 2, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(boxX, summaryPageY, boxW, totalsBoxHeight, 2, 2, 'S');
+
+  let currentY = summaryPageY + 4.5;
+  const labelX = boxX + 4;
+  const valX = boxX + boxW - 4;
+
+  // 1. Items Sub Total (Gross)
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text('• This is system generated invoice.', 14, termsY + 6);
-
-  // Signature Block (Bottom Right)
-  const sigY = bottomY + 14;
+  doc.setTextColor(71, 85, 105);
+  doc.text('Items Sub Total', labelX, currentY);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-  doc.text('Signature', 196, sigY, { align: 'right' });
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Rs. ${itemsSubtotal.toFixed(2)}`, valX, currentY, { align: 'right' });
+  currentY += 5;
+
+  // 2. Discount Percentage & Discounted Amount
+  if (discountAmount > 0 || displayDiscountPercent > 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(185, 28, 28);
+    doc.text(`Discount (${displayDiscountPercent}%)`, labelX, currentY);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`- Rs. ${discountAmount.toFixed(2)}`, valX, currentY, { align: 'right' });
+    currentY += 5;
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text('Discount (0%)', labelX, currentY);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('Rs. 0.00', valX, currentY, { align: 'right' });
+    currentY += 5;
+  }
+
+  // 3. Extra Discount (if applicable)
+  if (hasExtraDiscount) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(185, 28, 28);
+    doc.text('Extra Discount', labelX, currentY);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`- Rs. ${extraDiscount.toFixed(2)}`, valX, currentY, { align: 'right' });
+    currentY += 5;
+  }
+
+  // Divider line inside totals box
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(boxX, currentY - 1, boxX + boxW, currentY - 1);
+  currentY += 1;
+
+  // Highlight Row for Total Amount
+  doc.setFillColor(255, 247, 237);
+  doc.rect(boxX + 0.5, currentY - 2.5, boxW - 1, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Total Amount', labelX, currentY + 2);
+  doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+  doc.setFontSize(10.5);
+  doc.text(`Rs. ${order.total_amount.toFixed(2)}`, valX, currentY + 2, { align: 'right' });
+  currentY += 7.5;
+
+  // Paid & Balance / Payment Status
+  if (paidVal !== null && paidVal > 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('Paid Amount', labelX, currentY);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Rs. ${paidVal.toFixed(2)}`, valX, currentY, { align: 'right' });
+    currentY += 5;
+
+    if (remVal !== null && remVal > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(185, 28, 28);
+      doc.text('Balance Due', labelX, currentY);
+      doc.text(`Rs. ${remVal.toFixed(2)}`, valX, currentY, { align: 'right' });
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(22, 101, 52);
+      doc.text('Payment Status', labelX, currentY);
+      doc.text('PAID (FULL)', valX, currentY, { align: 'right' });
+    }
+  }
+
+  // ── LEFT SIDE: AMOUNT IN WORDS & ORDER NOTES ──
+  const leftX = 14;
+  const leftW = 98;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('AMOUNT IN WORDS:', leftX, summaryPageY + 4);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  const wordsLines = doc.splitTextToSize(numberToWordsINR(order.total_amount), leftW);
+  doc.text(wordsLines, leftX, summaryPageY + 8.5);
+
+  let noteBoxBottom = summaryPageY + 8.5 + (wordsLines.length * 4);
+
+  const cleanNotes = (order.notes || '')
+    .replace(/₹/g, 'Rs. ')
+    .replace(/'(?=\d)/g, 'Rs. ')
+    .trim();
+
+  if (cleanNotes) {
+    const noteY = noteBoxBottom + 3;
+    const splitNotes = doc.splitTextToSize(cleanNotes, leftW - 6);
+    const noteH = Math.max(12, 6 + (splitNotes.length * 3.5));
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(leftX, noteY, leftW, noteH, 1.5, 1.5, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(leftX, noteY, leftW, noteH, 1.5, 1.5, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+    doc.text('ORDER NOTE / DETAILS:', leftX + 3, noteY + 4);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text(splitNotes, leftX + 3, noteY + 8);
+    noteBoxBottom = noteY + noteH;
+  }
+
+  // ── 5. BOTTOM FOOTER (QR, TERMS & SIGNATURE) ──
+  let footerY = Math.max(summaryPageY + totalsBoxHeight + 6, noteBoxBottom + 6);
+  if (footerY > 238) {
+    doc.addPage();
+    footerY = 20;
+  }
+
+  // Horizontal Footer Divider
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.5);
+  doc.line(14, footerY, 196, footerY);
+
+  // Column 1: UPI QR Code
+  if (qrDataUrl) {
+    doc.addImage(qrDataUrl, 'PNG', 14, footerY + 3.5, 20, 20);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+    doc.text('Scan & Pay via UPI', 14, footerY + 26.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('krishnanhk55@okaxis', 14, footerY + 29.5);
+  }
+
+  // Column 2: Terms & Conditions
+  const termsX = 46;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Terms and Conditions:', termsX, footerY + 5.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('1. Subject to Sivakasi Jurisdiction.', termsX, footerY + 9.5);
+  doc.text('2. Goods once sold will not be taken back or exchanged.', termsX, footerY + 13.5);
+  doc.text('3. Firecrackers must be stored in cool, dry place away from flame.', termsX, footerY + 17.5);
+  doc.text('4. Always handle with caution under adult supervision.', termsX, footerY + 21.5);
+  doc.text('5. This is a computer-generated authentic invoice.', termsX, footerY + 25.5);
+
+  // Column 3: Signature Block
+  const sigX = 196;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('For SRI ARUMUGAM PYRO PARK', sigX, footerY + 5.5, { align: 'right' });
 
   if (signatureImg) {
-    doc.addImage(signatureImg, 'PNG', 152, sigY + 2, 44, 14);
+    doc.addImage(signatureImg, 'PNG', 156, footerY + 7.5, 40, 13);
   }
 
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(SHOP_INFO.signatory, sigX, footerY + 23.5, { align: 'right' });
+
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.text(SHOP_INFO.signatory, 196, sigY + 19, { align: 'right' });
+  doc.setFontSize(6.8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Authorized Signatory', sigX, footerY + 27, { align: 'right' });
 
   if (triggerDownload) {
     doc.save(`Order_Invoice_${orderId}.pdf`);
@@ -965,3 +1203,361 @@ export async function generateGSTInvoicePDF(
 
   return doc;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. CART ESTIMATE / QUOTATION PDF GENERATOR
+// Allows user to download an official Price Estimate / Order Quotation
+// directly from their shopping cart or during checkout.
+// ─────────────────────────────────────────────────────────────────────────────
+export interface CartEstimateItem {
+  id?: string;
+  name: string;
+  price: number;
+  finalPrice: number;
+  quantity: number;
+}
+
+export interface CartEstimateOptions {
+  customerName?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  notes?: string;
+}
+
+export async function generateCartEstimatePDF(
+  items: CartEstimateItem[],
+  totalAmount: number,
+  options?: CartEstimateOptions,
+  triggerDownload: boolean = true
+) {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const primaryDark = [27, 35, 66];
+  const brandOrange = [234, 88, 12]; // #ea580c
+
+  const estimateRef = `EST-${Date.now().toString().slice(-6)}`;
+  const now = new Date();
+  const formattedDate = now.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+  });
+  const formattedTime = now.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const logoImg = await loadImage('/sriarumugamlogo.png');
+  const signatureImg = await loadImage('/signature.png');
+  const qrDataUrl = await generateQrDataUrl(
+    `upi://pay?pa=krishnanhk55@okaxis&pn=Sri%20Arumugam%20Pyro%20Park&am=${totalAmount}&cu=INR`
+  );
+
+  // Watermark
+  doc.saveGraphicsState();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(36);
+  doc.setTextColor(245, 230, 215);
+  doc.text('Sri Arumuga Pyro Park', 38, 175, { angle: 30 });
+  doc.restoreGraphicsState();
+
+  // Top Header: Logo on Left, ESTIMATE / QUOTATION on Right
+  if (logoImg) {
+    doc.addImage(logoImg, 'PNG', 14, 12, 46, 15);
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+    doc.text('SRI ARUMUGAM PYRO PARK', 14, 22);
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+  doc.text('ESTIMATE / QUOTATION', 196, 20, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Direct Sivakasi Factory Wholesale Price Quote', 196, 25, { align: 'right' });
+
+  // Address & Quotation Details 3-Column Block
+  const addressY = 36;
+
+  // Column 1: From Address
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('From:', 14, addressY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(SHOP_INFO.name, 14, addressY + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(40, 40, 40);
+  doc.text(SHOP_INFO.addressLine1, 14, addressY + 11);
+  doc.text(SHOP_INFO.addressLine2, 14, addressY + 16);
+  doc.text(SHOP_INFO.addressLine3, 14, addressY + 21);
+  doc.text(`Phone: ${SHOP_INFO.phone}`, 14, addressY + 26);
+  doc.text(`GSTIN: ${SHOP_INFO.gstin}`, 14, addressY + 31);
+
+  // Column 2: Quotation For (Buyer)
+  const col2X = 85;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Quotation For:', col2X, addressY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(options?.customerName || 'Valued Festive Customer', col2X, addressY + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(40, 40, 40);
+  if (options?.phone) {
+    doc.text(`Phone: ${options.phone}`, col2X, addressY + 11);
+  }
+  if (options?.city || options?.state || options?.pincode) {
+    const loc = [options.city, options.state, options.pincode].filter(Boolean).join(', ');
+    const locLines = doc.splitTextToSize(loc, 55);
+    doc.text(locLines, col2X, addressY + (options.phone ? 16 : 11));
+  } else {
+    doc.text('Online Catalog Cart Selection', col2X, addressY + (options?.phone ? 16 : 11));
+  }
+
+  // Column 3: Estimate Meta
+  const col3X = 145;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Estimate Ref: #${estimateRef}`, col3X, addressY);
+  doc.text(`Date : ${formattedDate}`, col3X, addressY + 5);
+  doc.text(`Time : ${formattedTime}`, col3X, addressY + 9.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Status: Cart Price Estimate', col3X, addressY + 14.5);
+
+  // Table of Items
+  const tableHead = [['S.No', 'Product Name', 'MRP (Rs.)', 'Offer Rate (Rs.)', 'Qty', 'Amount (Rs.)']];
+  let grossMrpTotal = 0;
+
+  const tableData = items.map((item, index) => {
+    const mrp = Number(item.price || item.finalPrice || 0);
+    const offerPrice = Number(item.finalPrice || item.price || 0);
+    const qty = Number(item.quantity || 1);
+    const lineTotal = offerPrice * qty;
+    grossMrpTotal += mrp * qty;
+
+    return [
+      index + 1,
+      item.name || 'Cracker Item',
+      `Rs. ${mrp.toFixed(2)}`,
+      `Rs. ${offerPrice.toFixed(2)}`,
+      qty,
+      `Rs. ${lineTotal.toFixed(2)}`,
+    ];
+  });
+
+  const tableStartY = addressY + 36;
+
+  autoTable(doc, {
+    startY: tableStartY,
+    head: tableHead,
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [234, 88, 12],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      halign: 'center',
+      valign: 'middle',
+      cellPadding: { top: 3.5, bottom: 3.5, left: 2.5, right: 2.5 },
+      lineColor: [217, 119, 6],
+      lineWidth: 0.3,
+    },
+    alternateRowStyles: {
+      fillColor: [254, 252, 248],
+    },
+    bodyStyles: {
+      fontSize: 8.5,
+      textColor: [15, 23, 42],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.25,
+      cellPadding: { top: 2.8, bottom: 2.8, left: 2.5, right: 2.5 },
+      valign: 'middle',
+    },
+    columnStyles: {
+      0: { cellWidth: 12, halign: 'center' },
+      1: { cellWidth: 76, halign: 'left' },
+      2: { cellWidth: 26, halign: 'right' },
+      3: { cellWidth: 26, halign: 'right' },
+      4: { cellWidth: 14, halign: 'center' },
+      5: { cellWidth: 28, halign: 'right' },
+    },
+    tableWidth: 182,
+    margin: { left: 14, right: 14 },
+    didParseCell: (data) => {
+      if (data.section === 'head') {
+        if (data.column.index === 1) data.cell.styles.halign = 'left';
+        if (data.column.index >= 2 && data.column.index !== 4) data.cell.styles.halign = 'right';
+      }
+    },
+  });
+
+  const tableFinalY = (doc as any).lastAutoTable.finalY + 4;
+
+  let summaryPageY = tableFinalY;
+  if (tableFinalY > 210) {
+    doc.addPage();
+    summaryPageY = 20;
+  }
+
+  const totalSavings = Math.max(0, grossMrpTotal - totalAmount);
+
+  // ── RIGHT SIDE: TOTALS CARD ──
+  const boxX = 118;
+  const boxW = 78;
+  const totalsBoxHeight = totalSavings > 0 ? 24 : 14;
+
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(boxX, summaryPageY, boxW, totalsBoxHeight, 2, 2, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(boxX, summaryPageY, boxW, totalsBoxHeight, 2, 2, 'S');
+
+  let currentY = summaryPageY + 4.5;
+  const labelX = boxX + 4;
+  const valX = boxX + boxW - 4;
+
+  if (totalSavings > 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text('MRP Sub Total', labelX, currentY);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Rs. ${grossMrpTotal.toFixed(2)}`, valX, currentY, { align: 'right' });
+    currentY += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(185, 28, 28);
+    doc.text('Factory Savings', labelX, currentY);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`- Rs. ${totalSavings.toFixed(2)}`, valX, currentY, { align: 'right' });
+    currentY += 5;
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(boxX, currentY - 1, boxX + boxW, currentY - 1);
+    currentY += 1;
+  }
+
+  // Highlight Net Total Row
+  doc.setFillColor(255, 247, 237);
+  doc.rect(boxX + 0.5, currentY - 2.5, boxW - 1, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Estimated Total', labelX, currentY + 2);
+  doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+  doc.setFontSize(10.5);
+  doc.text(`Rs. ${totalAmount.toFixed(2)}`, valX, currentY + 2, { align: 'right' });
+
+  // ── LEFT SIDE: AMOUNT IN WORDS ──
+  const leftX = 14;
+  const leftW = 98;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('ESTIMATED AMOUNT IN WORDS:', leftX, summaryPageY + 4);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  const wordsLines = doc.splitTextToSize(numberToWordsINR(totalAmount), leftW);
+  doc.text(wordsLines, leftX, summaryPageY + 8.5);
+
+  const wordsBottom = summaryPageY + 8.5 + (wordsLines.length * 4);
+
+  // ── BOTTOM FOOTER ──
+  let footerY = Math.max(summaryPageY + totalsBoxHeight + 6, wordsBottom + 6);
+  if (footerY > 238) {
+    doc.addPage();
+    footerY = 20;
+  }
+
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.5);
+  doc.line(14, footerY, 196, footerY);
+
+  // Column 1: UPI QR Code
+  if (qrDataUrl) {
+    doc.addImage(qrDataUrl, 'PNG', 14, footerY + 3.5, 20, 20);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(brandOrange[0], brandOrange[1], brandOrange[2]);
+    doc.text('Scan & Pay via UPI', 14, footerY + 26.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('krishnanhk55@okaxis', 14, footerY + 29.5);
+  }
+
+  // Column 2: Quotation Terms
+  const termsX = 46;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Quotation Terms & Booking Instructions:', termsX, footerY + 5.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('• Direct Sivakasi factory outlet wholesale rates. All taxes included.', termsX, footerY + 9.5);
+  doc.text('• To confirm order, proceed to checkout on our website or share this PDF on WhatsApp.', termsX, footerY + 13.5);
+  doc.text('• Minimum order amount: Tamil Nadu Rs. 3,000 | Other States Rs. 5,000.', termsX, footerY + 17.5);
+  doc.text('• Subject to product availability at the time of order confirmation.', termsX, footerY + 21.5);
+  doc.text('• This estimate is valid for 7 days from the date of generation.', termsX, footerY + 25.5);
+
+  // Column 3: Signature Block
+  const sigX = 196;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('For SRI ARUMUGAM PYRO PARK', sigX, footerY + 5.5, { align: 'right' });
+
+  if (signatureImg) {
+    doc.addImage(signatureImg, 'PNG', 156, footerY + 7.5, 40, 13);
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(SHOP_INFO.signatory, sigX, footerY + 23.5, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Authorized Signatory', sigX, footerY + 27, { align: 'right' });
+
+  if (triggerDownload) {
+    doc.save(`Estimate_Quotation_${estimateRef}.pdf`);
+  }
+
+  return doc;
+}
+

@@ -77,20 +77,23 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
   };
 
   const handleAddToCart = (box: GiftBox, finalPrice: number, qty: number = 1) => {
+    if (box.stock !== undefined && box.stock <= 0) return;
+    const boxStock = box.stock !== undefined ? box.stock : 100;
     const mainImg = (box.images && box.images.length > 0) ? box.images[0] : '/carousel-2.png';
     const existing = cartItems.find((i) => i.id === box.id);
 
     if (existing) {
-      updateQuantity(box.id, existing.quantity + qty);
+      updateQuantity(box.id, Math.min(boxStock, existing.quantity + qty));
     } else {
-      for (let i = 0; i < qty; i++) {
+      const safeQty = Math.min(boxStock, qty);
+      for (let i = 0; i < safeQty; i++) {
         addItem({
           id: box.id,
           name: box.name,
           image_url: mainImg,
           price: box.price,
           finalPrice: finalPrice,
-          stock: box.stock || 100,
+          stock: boxStock,
         });
       }
     }
@@ -136,6 +139,8 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
           const isJustAdded = addedIds[box.id];
           const totalItemsCount = box.contents?.length || 0;
 
+          const isOutOfStock = box.stock !== undefined && box.stock <= 0;
+          const boxStock = box.stock !== undefined ? box.stock : 100;
           const inCartItem = mounted ? cartItems.find((i) => i.id === box.id) : undefined;
           const inCartQty = inCartItem ? inCartItem.quantity : 0;
 
@@ -178,6 +183,15 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
                     <Eye className="w-4 h-4 text-orange-600" /> Click to View Full Details
                   </span>
                 </div>
+
+                {/* Out of Stock Overlay */}
+                {isOutOfStock && (
+                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-20">
+                    <span className="bg-red-600 text-white text-xs font-black px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-lg border border-red-400">
+                      Out of Stock
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Card Details */}
@@ -204,7 +218,7 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
 
               {/* Card Action Controls — Warm Saffron / Orange Theme */}
               <div className="p-6 pt-0">
-                {inCartQty > 0 ? (
+                {inCartQty > 0 && !isOutOfStock ? (
                   <div
                     onClick={(e) => e.stopPropagation()}
                     className="flex items-center justify-between bg-amber-50/80 border border-amber-200 rounded-2xl p-1.5 shadow-2xs"
@@ -221,12 +235,22 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
                     </span>
                     <button
                       type="button"
+                      disabled={inCartQty >= boxStock}
                       onClick={() => updateQuantity(box.id, inCartQty + 1)}
-                      className="w-10 h-10 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white hover:from-amber-600 hover:to-red-700 flex items-center justify-center font-bold transition-colors shadow-2xs cursor-pointer"
+                      className="w-10 h-10 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white hover:from-amber-600 hover:to-red-700 flex items-center justify-center font-bold transition-colors shadow-2xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                      title={inCartQty >= boxStock ? `Max stock reached (${boxStock})` : 'Add one more'}
                     >
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
+                ) : isOutOfStock ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-3.5 px-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60"
+                  >
+                    Out of Stock
+                  </button>
                 ) : (
                   <button
                     type="button"
@@ -351,47 +375,61 @@ export default function GiftBoxesSection({ giftBoxes, globalDiscount }: Props) {
                     </div>
 
                     {/* Quantity Selector & Add Button */}
-                    <div className="space-y-3 pt-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Select Packs:</span>
-                        <div className="flex items-center border border-slate-300 rounded-xl bg-white shadow-2xs overflow-hidden">
-                          <button
-                            type="button"
-                            onClick={() => setModalQty(Math.max(1, modalQty - 1))}
-                            className="w-10 h-10 flex items-center justify-center text-slate-600 hover:text-orange-600 hover:bg-slate-100 cursor-pointer"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <span className="w-10 text-center font-black text-sm text-slate-900">{modalQty}</span>
-                          <button
-                            type="button"
-                            onClick={() => setModalQty(modalQty + 1)}
-                            className="w-10 h-10 flex items-center justify-center text-slate-600 hover:text-orange-600 hover:bg-slate-100 cursor-pointer"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
+                    {selectedBox.stock !== undefined && selectedBox.stock <= 0 ? (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60"
+                        >
+                          Out of Stock
+                        </button>
                       </div>
+                    ) : (
+                      <div className="space-y-3 pt-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Select Packs:</span>
+                          <div className="flex items-center border border-slate-300 rounded-xl bg-white shadow-2xs overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => setModalQty(Math.max(1, modalQty - 1))}
+                              className="w-10 h-10 flex items-center justify-center text-slate-600 hover:text-orange-600 hover:bg-slate-100 cursor-pointer"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <span className="w-10 text-center font-black text-sm text-slate-900">{modalQty}</span>
+                            <button
+                              type="button"
+                              disabled={selectedBox.stock !== undefined && modalQty >= selectedBox.stock}
+                              onClick={() => setModalQty(modalQty + 1)}
+                              className="w-10 h-10 flex items-center justify-center text-slate-600 hover:text-orange-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                              title={selectedBox.stock !== undefined && modalQty >= selectedBox.stock ? `Max stock reached (${selectedBox.stock})` : 'Add one more'}
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (inCartQty > 0) {
-                            updateQuantity(selectedBox.id, modalQty);
-                          } else {
-                            handleAddToCart(selectedBox, finalPrice, modalQty);
-                          }
-                          handleCloseModal();
-                        }}
-                        className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                          isJustAdded
-                            ? 'bg-amber-600 text-white shadow-amber-500/30'
-                            : 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white shadow-orange-500/25'
-                        }`}
-                      >
-                        <ShoppingBag className="w-5 h-5" /> {inCartQty > 0 ? `Update Cart Quantity (${modalQty})` : `Add ${modalQty} Pack${modalQty > 1 ? 'es' : ''} to Cart (${formatCurrency(finalPrice * modalQty)})`}
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (inCartQty > 0) {
+                              updateQuantity(selectedBox.id, modalQty);
+                            } else {
+                              handleAddToCart(selectedBox, finalPrice, modalQty);
+                            }
+                            handleCloseModal();
+                          }}
+                          className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                            isJustAdded
+                              ? 'bg-amber-600 text-white shadow-amber-500/30'
+                              : 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white shadow-orange-500/25'
+                          }`}
+                        >
+                          <ShoppingBag className="w-5 h-5" /> {inCartQty > 0 ? `Update Cart Quantity (${modalQty})` : `Add ${modalQty} Pack${modalQty > 1 ? 'es' : ''} to Cart (${formatCurrency(finalPrice * modalQty)})`}
+                        </button>
+                      </div>
+                    )}
 
                   </div>
                 </div>

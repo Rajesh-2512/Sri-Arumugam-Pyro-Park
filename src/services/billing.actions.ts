@@ -186,6 +186,7 @@ export async function updateAdminBillingOrder(input: {
   totalAmount: number;
   paidAmount: number;
   invoiceNumber?: string;
+  notes?: string;
   items?: BillingOrderItem[];
 }) {
   if (!input.orderId || (input.items !== undefined && input.items.length === 0)) {
@@ -198,11 +199,12 @@ export async function updateAdminBillingOrder(input: {
   }
 
   const remainingAmount = Math.max(0, input.totalAmount - input.paidAmount);
-  const orderUpdate = {
+  const orderUpdate: any = {
     total_amount: input.totalAmount,
     paid_amount: input.paidAmount,
     remaining_amount: remainingAmount,
     ...(invoiceNumber ? { invoice_number: invoiceNumber } : {}),
+    ...(input.notes !== undefined ? { notes: input.notes } : {}),
   };
 
   const { error: orderError } = await adminSupabase

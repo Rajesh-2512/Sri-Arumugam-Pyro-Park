@@ -37,11 +37,13 @@ export default function ProductDetailsModal({ product, globalDiscount, onClose }
   const currentQty = cartItem ? cartItem.quantity : 0;
   const imageUrl = getProductImage(product.image_url);
 
+  const isOutOfStock = product.stock <= 0;
   const handleQtyChange = (newQty: number) => {
-    if (newQty < 0) return;
+    if (isOutOfStock || newQty < 0) return;
+    const targetQty = Math.min(newQty, product.stock);
     if (cartItem) {
-      updateQuantity(product.id, newQty);
-    } else if (newQty > 0) {
+      updateQuantity(product.id, targetQty);
+    } else if (targetQty > 0) {
       addItem({
         id: product.id,
         name: product.name,
@@ -50,8 +52,8 @@ export default function ProductDetailsModal({ product, globalDiscount, onClose }
         finalPrice,
         stock: product.stock,
       });
-      if (newQty > 1) {
-        updateQuantity(product.id, newQty);
+      if (targetQty > 1) {
+        updateQuantity(product.id, targetQty);
       }
     }
   };
@@ -144,8 +146,8 @@ export default function ProductDetailsModal({ product, globalDiscount, onClose }
 
             {/* Quantity Controls & Subtotal */}
             <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
-              {product.stock === 0 ? (
-                <span className="text-red-600 font-bold text-xs bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
+              {isOutOfStock ? (
+                <span className="text-red-600 font-bold text-xs bg-red-50 px-3.5 py-2 rounded-xl border border-red-200">
                   Out of Stock
                 </span>
               ) : (
@@ -164,8 +166,10 @@ export default function ProductDetailsModal({ product, globalDiscount, onClose }
                     </span>
                     <button
                       type="button"
+                      disabled={currentQty >= product.stock}
                       onClick={() => handleQtyChange(currentQty + 1)}
-                      className="p-2.5 text-slate-600 hover:text-emerald-600 hover:bg-slate-200 cursor-pointer transition-colors"
+                      className="p-2.5 text-slate-600 hover:text-emerald-600 hover:bg-slate-200 cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      title={currentQty >= product.stock ? `Max stock reached (${product.stock})` : 'Add one more'}
                     >
                       <Plus className="w-4 h-4" />
                     </button>

@@ -44,7 +44,45 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
   const generatePDF = async (triggerDownload = true) => {
     setIsGenerating(true);
     try {
-      await generateInvoicePDF(order, triggerDownload);
+      const items = order.order_items || [];
+      const itemsSubtotal = items.reduce((sum: number, item: any) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+
+      let discountPercent = 0;
+      let extraDiscount = 0;
+
+      if (order.notes) {
+        const pctMatch = order.notes.match(/Discount[:\s]*([\d.]+)%/i)
+          || order.notes.match(/([\d.]+)%\s*Discount/i)
+          || order.notes.match(/Discount[:\s]*(\d+)(?!\d|\.)/i);
+        if (pctMatch && pctMatch[1]) discountPercent = parseFloat(pctMatch[1]) || 0;
+
+        const extraMatch = order.notes.match(/Extra\s*(?:Amount\s*)?Discount[:\s]*(?:Rs\.?|₹)?\s*([\d.]+)/i);
+        if (extraMatch && extraMatch[1]) extraDiscount = parseFloat(extraMatch[1]) || 0;
+      }
+
+      let discountAmount = 0;
+      if (discountPercent > 0) {
+        discountAmount = Math.round(((itemsSubtotal * discountPercent) / 100) * 100) / 100;
+      } else if (itemsSubtotal > (order.total_amount + extraDiscount)) {
+        discountAmount = Math.max(0, Math.round((itemsSubtotal - (order.total_amount + extraDiscount)) * 100) / 100);
+        if (itemsSubtotal > 0) {
+          discountPercent = Math.round((discountAmount / itemsSubtotal) * 100);
+        }
+      } else if (itemsSubtotal > order.total_amount) {
+        discountAmount = Math.max(0, Math.round((itemsSubtotal - order.total_amount) * 100) / 100);
+        if (itemsSubtotal > 0) {
+          discountPercent = Math.round((discountAmount / itemsSubtotal) * 100);
+        }
+      }
+
+      await generateInvoicePDF({
+        ...order,
+        subtotal: itemsSubtotal > 0 ? itemsSubtotal : order.total_amount,
+        discount_percent: discountPercent,
+        discount_amount: discountAmount,
+        extra_discount: extraDiscount,
+      }, triggerDownload);
+
       if (triggerDownload) {
         setDownloaded(true);
       }
@@ -209,19 +247,42 @@ export default function OrderInvoicePDF({ order }: { order: any }) {
           </div>
 
           {/* Pricing Total Summary */}
-          <div className="flex flex-col sm:flex-row justify-between items-center bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white p-6 rounded-2xl gap-4 select-none">
-            <div className="space-y-1 text-center sm:text-left">
-              <div className="inline-flex items-center gap-1.5 text-xs text-white font-bold">
-                <CheckCircle2 className="w-4 h-4" /> Order Submitted Successfully
-              </div>
-              <p className="text-[11px] text-orange-100 font-medium">Payment Status: Manual Confirmation / COD</p>
-            </div>
+          {(() => {
+            const itemsSubtotal = (order.order_items || []).reduce(
+              (sum: number, item: OrderItem) => sum + (item.price * item.quantity),
+              0
+            );
+            const discountAmount = itemsSubtotal > order.total_amount ? itemsSubtotal - order.total_amount : 0;
 
-            <div className="text-center sm:text-right border-t sm:border-t-0 border-white/20 pt-3 sm:pt-0 w-full sm:w-auto">
-              <p className="text-xs text-orange-100 font-bold uppercase tracking-wider">Grand Total Amount</p>
-              <p className="text-3xl font-black text-white">{formatCurrency(order.total_amount)}</p>
-            </div>
-          </div>
+            return (
+              <div className="space-y-3 select-none">
+                {discountAmount > 0 && (
+                  <div className="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-3 text-xs border-b border-slate-200 pb-3 pr-2">
+                    <div className="flex items-center gap-4 text-slate-600">
+                      <span>Items Subtotal: <strong>{formatCurrency(itemsSubtotal)}</strong></span>
+                      <span className="text-red-600 font-bold bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
+                        Discount / Savings: -{formatCurrency(discountAmount)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row justify-between items-center bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white p-6 rounded-2xl gap-4">
+                  <div className="space-y-1 text-center sm:text-left">
+                    <div className="inline-flex items-center gap-1.5 text-xs text-white font-bold">
+                      <CheckCircle2 className="w-4 h-4" /> Order Submitted Successfully
+                    </div>
+                    <p className="text-[11px] text-orange-100 font-medium">Payment Status: Manual Confirmation / Advance / COD</p>
+                  </div>
+
+                  <div className="text-center sm:text-right border-t sm:border-t-0 border-white/20 pt-3 sm:pt-0 w-full sm:w-auto">
+                    <p className="text-xs text-orange-100 font-bold uppercase tracking-wider">Grand Total Amount</p>
+                    <p className="text-3xl font-black text-white">{formatCurrency(order.total_amount)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Signature Block */}
           <div className="flex justify-end pt-2">

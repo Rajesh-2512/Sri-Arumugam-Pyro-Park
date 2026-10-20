@@ -25,6 +25,7 @@ import {
   isValidIndianPhone,
   isValidIndianPincode,
 } from '@/lib/validation';
+import { generateCartEstimatePDF } from '@/lib/invoicePdfGenerator';
 
 const checkoutSchema = z.object({
   customer_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -42,6 +43,7 @@ type CheckoutForm = z.infer<typeof checkoutSchema>;
 export default function CheckoutClient({ isShopOpen = true }: { isShopOpen?: boolean }) {
   const { items, totalAmount, clearCart } = useCartStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [downloadingEstimate, setDownloadingEstimate] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [mounted, setMounted] = useState(false);
   const [isRestoredFromCookie, setIsRestoredFromCookie] = useState(false);
@@ -57,6 +59,37 @@ export default function CheckoutClient({ isShopOpen = true }: { isShopOpen?: boo
 
   // Watch form fields to compute min order rules & save to cookies
   const formValues = watch();
+
+  const handleDownloadEstimatePdf = async () => {
+    if (items.length === 0) return;
+    setDownloadingEstimate(true);
+    try {
+      await generateCartEstimatePDF(
+        items.map((i) => ({
+          id: i.id,
+          name: i.name,
+          price: i.price,
+          finalPrice: i.finalPrice,
+          quantity: i.quantity,
+        })),
+        totalAmount,
+        {
+          customerName: formValues.customer_name || 'Valued Festive Customer',
+          phone: formValues.phone || '',
+          address: formValues.address || '',
+          city: formValues.city || '',
+          state: formValues.state || 'Tamil Nadu',
+          pincode: formValues.pincode || '',
+          notes: formValues.notes || '',
+        },
+        true
+      );
+    } catch (err) {
+      console.error('Failed to download estimate PDF:', err);
+    } finally {
+      setDownloadingEstimate(false);
+    }
+  };
   const rawPincode = (formValues.pincode || '').trim().replace(/\D/g, '');
 
   // Live validation state for UI helpers
@@ -486,36 +519,48 @@ export default function CheckoutClient({ isShopOpen = true }: { isShopOpen?: boo
             </div>
           )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isSubmitting || !isShopOpen || !isMinAmountMet}
-            className={`w-full py-4 px-6 rounded-2xl text-white font-extrabold text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-3 transition-all ${
-              !isMinAmountMet
-                ? 'bg-red-600 opacity-90 cursor-not-allowed shadow-none'
-                : isShopOpen
-                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 shadow-orange-500/20 hover:scale-[1.01] cursor-pointer'
-                : 'bg-red-600 opacity-80 cursor-not-allowed shadow-none'
-            }`}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" /> Submitting Order...
-              </>
-            ) : !isMinAmountMet ? (
-              <>
-                ⚠️ MIN ORDER {formatCurrency(minRequiredAmount)} REQUIRED (ADD {formatCurrency(amountNeeded)} MORE)
-              </>
-            ) : !isShopOpen ? (
-              <>
-                ⚠️ SHOP CLOSED - CANNOT CONFIRM ORDER
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-5 h-5" /> PLACE ORDER ({formatCurrency(totalAmount)})
-              </>
-            )}
-          </button>
+          {/* Action Buttons: Download Cart Estimate & Place Order */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={handleDownloadEstimatePdf}
+              disabled={downloadingEstimate || items.length === 0}
+              className="w-full sm:w-auto py-4 px-6 rounded-2xl bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-amber-400 text-slate-800 font-extrabold text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Download className={`w-4 h-4 text-amber-600 ${downloadingEstimate ? 'animate-bounce' : ''}`} />
+              <span>{downloadingEstimate ? 'Generating Estimate...' : 'Download Estimate (PDF)'}</span>
+            </button>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || !isShopOpen || !isMinAmountMet}
+              className={`flex-1 py-4 px-6 rounded-2xl text-white font-extrabold text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2.5 transition-all ${
+                !isMinAmountMet
+                  ? 'bg-red-600 opacity-90 cursor-not-allowed shadow-none'
+                  : isShopOpen
+                  ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 shadow-orange-500/20 hover:scale-[1.01] cursor-pointer'
+                  : 'bg-red-600 opacity-80 cursor-not-allowed shadow-none'
+              }`}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" /> Submitting Order...
+                </>
+              ) : !isMinAmountMet ? (
+                <>
+                  ⚠️ MIN ORDER {formatCurrency(minRequiredAmount)} REQUIRED
+                </>
+              ) : !isShopOpen ? (
+                <>
+                  ⚠️ SHOP CLOSED - CANNOT CONFIRM ORDER
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-5 h-5" /> PLACE ORDER ({formatCurrency(totalAmount)})
+                </>
+              )}
+            </button>
+          </div>
 
           <div className="text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5 font-medium">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />

@@ -33,12 +33,13 @@ export default function ProductCard({ product, globalDiscount }: Props) {
   const images = getAllProductImages(product.image_url);
   const hasMultipleImages = images.length > 1;
 
+  const isOutOfStock = product.stock <= 0;
   const inCartItem = mounted ? cartItems.find((i) => i.id === product.id) : undefined;
   const inCartQty = inCartItem ? inCartItem.quantity : 0;
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (product.stock === 0) return;
+    if (isOutOfStock) return;
     addToCart({
       id: product.id,
       name: product.name,
@@ -133,10 +134,10 @@ export default function ProductCard({ product, globalDiscount }: Props) {
           )}
 
           {/* Out of Stock Overlay */}
-          {product.stock === 0 && (
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-[3]">
-              <span className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-md">
-                Sold Out
+          {isOutOfStock && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[3]">
+              <span className="bg-red-600 text-white text-xs font-black px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-lg border border-red-400">
+                Out of Stock
               </span>
             </div>
           )}
@@ -171,7 +172,7 @@ export default function ProductCard({ product, globalDiscount }: Props) {
             )}
           </div>
 
-          {inCartQty > 0 ? (
+          {inCartQty > 0 && !isOutOfStock ? (
             <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200 rounded-xl p-1 shadow-2xs">
               <button
                 type="button"
@@ -185,8 +186,10 @@ export default function ProductCard({ product, globalDiscount }: Props) {
               </span>
               <button
                 type="button"
+                disabled={inCartQty >= product.stock}
                 onClick={() => updateQuantity(product.id, inCartQty + 1)}
-                className="w-8 h-8 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white hover:from-amber-600 hover:to-red-700 flex items-center justify-center font-bold transition-colors shadow-2xs cursor-pointer"
+                className="w-8 h-8 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white hover:from-amber-600 hover:to-red-700 flex items-center justify-center font-bold transition-colors shadow-2xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                title={inCartQty >= product.stock ? `Max available stock reached (${product.stock})` : 'Add one more'}
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
@@ -194,12 +197,12 @@ export default function ProductCard({ product, globalDiscount }: Props) {
           ) : (
             <button
               onClick={handleAdd}
-              disabled={product.stock === 0}
+              disabled={isOutOfStock}
               className={`w-full py-2.5 px-4 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 shadow-md ${
                 added
                   ? 'bg-amber-600 text-white shadow-amber-500/30'
-                  : product.stock === 0
-                  ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                  : isOutOfStock
+                  ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
                   : 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white hover:from-amber-600 hover:to-red-700 shadow-orange-500/20 active:scale-95 cursor-pointer'
               }`}
             >
@@ -207,7 +210,7 @@ export default function ProductCard({ product, globalDiscount }: Props) {
                 <>
                   <Check className="w-4 h-4" /> Added to Cart!
                 </>
-              ) : product.stock === 0 ? (
+              ) : isOutOfStock ? (
                 'Out of Stock'
               ) : (
                 <>

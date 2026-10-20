@@ -34,11 +34,13 @@ export const useCartStore = create<CartState>()(
       totalItems: 0,
 
       addItem: (product) => {
+        if (!product || product.stock <= 0) return;
         const items = get().items;
         const existing = items.find((i) => i.id === product.id);
         let updated: CartItem[];
 
         if (existing) {
+          if (existing.quantity >= product.stock) return;
           const newQty = Math.min(existing.quantity + 1, product.stock);
           updated = items.map((i) =>
             i.id === product.id ? { ...i, quantity: newQty, finalPrice: product.finalPrice } : i
@@ -60,10 +62,13 @@ export const useCartStore = create<CartState>()(
           get().removeItem(id);
           return;
         }
-        const updated = get().items.map((i) => {
-          if (i.id !== id) return i;
-          return { ...i, quantity: Math.min(quantity, i.stock) };
-        });
+        const updated = get().items
+          .map((i) => {
+            if (i.id !== id) return i;
+            if (i.stock <= 0) return null;
+            return { ...i, quantity: Math.min(quantity, i.stock) };
+          })
+          .filter(Boolean) as CartItem[];
         set({ items: updated, ...computeTotals(updated) });
       },
 
